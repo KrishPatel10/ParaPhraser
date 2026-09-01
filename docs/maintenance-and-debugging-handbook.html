@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Complete maintenance and debugging handbook for the ParaPhraser Windows application.">
+  <title>ParaPhraser · Maintenance &amp; Debugging Handbook</title>
+  <style type="text/css">:root {
+color-scheme: dark;
+--bg: #070914;
+--bg-soft: #0b0f1e;
+--panel: rgba(17, 22, 42, .84);
+--panel-solid: #11162a;
+--panel-raised: #171d35;
+--text: #f2f4ff;
+--muted: #a6aecb;
+--faint: #737d9d;
+--border: rgba(157, 172, 255, .16);
+--accent: #a58af7;
+--cyan: #62d9ff;
+--green: #74e5bd;
+--code: #080b17;
+--shadow: 0 26px 74px rgba(0, 0, 0, .38);
+--sidebar-width: 310px;
+--header-height: 70px;
+}
+html[data-theme="light"] {
+color-scheme: light;
+--bg: #f4f6ff;
+--bg-soft: #e9edfb;
+--panel: rgba(255, 255, 255, .88);
+--panel-solid: #ffffff;
+--panel-raised: #f1f4ff;
+--text: #171a2d;
+--muted: #535c78;
+--faint: #747d99;
+--border: rgba(43, 53, 99, .14);
+--accent: #7058d8;
+--cyan: #087fa8;
+--green: #087b5c;
+--code: #14182a;
+--shadow: 0 24px 70px rgba(45, 55, 95, .14);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-height) + 24px); }
+body {
+margin: 0;
+min-height: 100vh;
+color: var(--text);
+background:
+radial-gradient(circle at 15% 2%, rgba(165, 138, 247, .18), transparent 31rem),
+radial-gradient(circle at 88% 10%, rgba(98, 217, 255, .12), transparent 30rem),
+var(--bg);
+font: 15.7px/1.72 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+-webkit-font-smoothing: antialiased;
+}
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+::selection { color: #fff; background: rgba(123, 93, 225, .75); }
+.reading-progress {
+position: fixed;
+z-index: 100;
+inset: 0 auto auto 0;
+width: 0;
+height: 3px;
+background: linear-gradient(90deg, var(--accent), var(--cyan), var(--green));
+box-shadow: 0 0 16px var(--cyan);
+}
+.topbar {
+position: fixed;
+z-index: 80;
+inset: 0 0 auto 0;
+height: var(--header-height);
+display: flex;
+align-items: center;
+gap: 16px;
+padding: 0 24px;
+border-bottom: 1px solid var(--border);
+background: color-mix(in srgb, var(--bg) 80%, transparent);
+backdrop-filter: blur(18px) saturate(140%);
+}
+.brand { display: flex; align-items: center; gap: 12px; min-width: 245px; color: var(--text); }
+.brand:hover { text-decoration: none; }
+.brand-mark {
+display: grid;
+place-items: center;
+width: 39px;
+height: 39px;
+border-radius: 12px;
+color: #fff;
+background: linear-gradient(135deg, #8e70f4, #41bee5);
+box-shadow: 0 8px 22px rgba(119, 96, 237, .35);
+font-weight: 900;
+letter-spacing: -.08em;
+}
+.brand-copy { display: flex; flex-direction: column; line-height: 1.16; }
+.brand-copy strong { font-size: 15px; }
+.brand-copy small { color: var(--muted); font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.top-actions { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+.icon-button, .text-button {
+min-height: 39px;
+border: 1px solid var(--border);
+border-radius: 11px;
+color: var(--text);
+background: var(--panel);
+cursor: pointer;
+transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+.icon-button { width: 41px; font-size: 17px; }
+.text-button { padding: 0 14px; font-weight: 650; }
+.icon-button:hover, .text-button:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: var(--panel-raised); }
+.menu-button { display: none; }
+.sidebar {
+position: fixed;
+z-index: 70;
+inset: var(--header-height) auto 0 0;
+width: var(--sidebar-width);
+padding: 22px 18px 34px;
+overflow-y: auto;
+border-right: 1px solid var(--border);
+background: color-mix(in srgb, var(--bg-soft) 88%, transparent);
+backdrop-filter: blur(16px);
+}
+.search-box { position: relative; margin-bottom: 8px; }
+.search-box svg { position: absolute; left: 13px; top: 13px; width: 16px; color: var(--faint); }
+.search-box input {
+width: 100%;
+height: 43px;
+padding: 0 43px 0 39px;
+border: 1px solid var(--border);
+border-radius: 12px;
+outline: none;
+color: var(--text);
+background: var(--panel);
+font: inherit;
+}
+.search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(165, 138, 247, .14); }
+.search-box kbd { position: absolute; right: 10px; top: 10px; padding: 2px 7px; border: 1px solid var(--border); border-radius: 6px; color: var(--faint); background: transparent; font: 11px system-ui; }
+.search-status { min-height: 20px; margin: 0 2px 7px; color: var(--muted); font-size: 12px; }
+.toc-label { margin: 11px 10px 8px; color: var(--faint); font-size: 10.5px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+#TOC ul { margin: 0; padding: 0; list-style: none; }
+#TOC > ul > li > a { display: none; }
+#TOC > ul > li > ul { display: block; }
+#TOC a {
+display: block;
+padding: 7px 10px;
+border-left: 2px solid transparent;
+border-radius: 0 9px 9px 0;
+color: var(--muted);
+font-size: 12.8px;
+line-height: 1.35;
+transition: all .14s ease;
+}
+#TOC a:hover { color: var(--text); background: var(--panel); text-decoration: none; }
+#TOC a.active { color: var(--text); border-left-color: var(--cyan); background: linear-gradient(90deg, rgba(98, 217, 255, .10), transparent); }
+.sidebar-note { margin: 22px 10px 0; color: var(--faint); font-size: 10.5px; }
+.sidebar-note span { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 9px var(--green); }
+.page { margin-left: var(--sidebar-width); padding-top: var(--header-height); }
+.hero {
+position: relative;
+overflow: hidden;
+max-width: 1120px;
+margin: 42px auto 28px;
+padding: 49px 53px 43px;
+border: 1px solid var(--border);
+border-radius: 28px;
+background: linear-gradient(135deg, rgba(165, 138, 247, .14), rgba(98, 217, 255, .055) 48%, transparent), var(--panel);
+box-shadow: var(--shadow);
+}
+.hero-glow { position: absolute; width: 330px; height: 330px; right: -120px; top: -150px; border-radius: 50%; background: radial-gradient(circle, rgba(116, 229, 189, .18), transparent 68%); }
+.badges { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 19px; }
+.badge { padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: rgba(255,255,255,.025); font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.badge-green { color: var(--green); border-color: color-mix(in srgb, var(--green) 34%, transparent); }
+.hero h1 { position: relative; max-width: 850px; margin: 0; color: var(--text); font-size: clamp(38px, 5vw, 65px); line-height: 1.04; letter-spacing: -.047em; }
+.hero h1 span { color: transparent; background: linear-gradient(90deg, var(--accent), var(--cyan)); background-clip: text; }
+.hero > p { position: relative; max-width: 790px; margin: 21px 0 0; color: var(--muted); font-size: 18px; }
+.fact-grid { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 31px; }
+.fact-grid article { min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 15px; background: rgba(0,0,0,.09); }
+.fact-grid small { display: block; margin-bottom: 5px; color: var(--faint); font-size: 9.5px; font-weight: 800; letter-spacing: .1em; }
+.fact-grid strong { display: block; overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr; align-items: center; gap: 9px; max-width: 1120px; margin: 0 auto 28px; }
+.flow article { min-width: 0; padding: 14px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); text-align: center; }
+.flow b { display: block; color: var(--accent); font-size: 10px; letter-spacing: .12em; }
+.flow strong { display: block; color: var(--text); font-size: 13px; }
+.flow span { display: block; color: var(--faint); font-size: 10.5px; white-space: nowrap; }
+.flow i { color: var(--accent); font-style: normal; font-weight: 900; }
+main { max-width: 960px; margin: 0 auto; padding: 10px 34px 90px; }
+main > section.level1 { min-width: 0; overflow-wrap: anywhere; }
+main > section.level1 > h1 { display: none; }
+main section.level2 {
+margin: 26px 0;
+padding: 31px 35px 35px;
+border: 1px solid var(--border);
+border-radius: 20px;
+background: var(--panel);
+box-shadow: 0 12px 40px rgba(0,0,0,.075);
+scroll-margin-top: calc(var(--header-height) + 20px);
+}
+main section.level2.search-hidden { display: none; }
+h2 { margin: 0 0 19px; color: var(--text); font-size: 27px; line-height: 1.2; letter-spacing: -.025em; }
+h2::before { content: attr(data-section-number); display: inline-grid; place-items: center; min-width: 32px; height: 32px; margin-right: 11px; border-radius: 10px; color: #fff; background: linear-gradient(135deg, #8165e8, #3fafd2); font-size: 13px; vertical-align: 4px; }
+h3 { margin: 30px 0 12px; color: var(--text); font-size: 19px; line-height: 1.3; }
+h4 { color: var(--text); }
+p { margin: 12px 0; }
+strong { color: color-mix(in srgb, var(--text) 93%, var(--accent)); }
+ul, ol { padding-left: 24px; }
+li { margin: 6px 0; padding-left: 3px; }
+li::marker { color: var(--accent); font-weight: 750; }
+blockquote { margin: 18px 0; padding: 12px 18px; border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; color: var(--muted); background: rgba(165,138,247,.07); }
+:not(pre) > code { padding: .17em .43em; border: 1px solid var(--border); border-radius: 6px; color: color-mix(in srgb, var(--cyan) 84%, var(--text)); background: var(--panel-raised); overflow-wrap: anywhere; word-break: break-word; font: .88em/1.5 "Cascadia Code", Consolas, monospace; }
+.code-shell { position: relative; margin: 18px 0; }
+pre { margin: 0; padding: 19px 21px; overflow: auto; border: 1px solid rgba(150,170,255,.15); border-radius: 13px; color: #d9e1ff; background: var(--code); box-shadow: inset 0 1px 0 rgba(255,255,255,.035); font: 13.1px/1.63 "Cascadia Code", Consolas, monospace; tab-size: 4; }
+.copy-code { position: absolute; z-index: 2; top: 9px; right: 9px; padding: 5px 9px; border: 1px solid rgba(180,190,255,.18); border-radius: 7px; color: #aeb8dc; background: rgba(24,29,52,.94); cursor: pointer; font: 11px system-ui; opacity: .72; transition: opacity .15s; }
+.code-shell:hover .copy-code, .copy-code:focus { opacity: 1; }
+.table-shell { margin: 18px 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.4px; }
+thead { background: linear-gradient(90deg, rgba(165,138,247,.13), rgba(98,217,255,.07)); }
+th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+th { color: var(--text); font-size: 11.5px; letter-spacing: .035em; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: rgba(165,138,247,.045); }
+.empty-state { display: none; max-width: 600px; margin: 35px auto 80px; padding: 34px; border: 1px solid var(--border); border-radius: 18px; color: var(--muted); background: var(--panel); text-align: center; }
+.empty-state.visible { display: block; }
+.empty-state div { margin-bottom: 8px; color: var(--accent); font-size: 30px; }
+.empty-state strong { font-size: 18px; }
+.empty-state p { margin-bottom: 0; }
+footer { padding: 0 20px 42px; color: var(--faint); font-size: 11px; text-align: center; }
+.back-to-top { position: fixed; z-index: 40; right: 22px; bottom: 22px; display: grid; place-items: center; width: 43px; height: 43px; border: 1px solid var(--border); border-radius: 13px; color: var(--text); background: var(--panel-solid); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transform: translateY(8px); transition: .2s ease; }
+.back-to-top:hover { text-decoration: none; }
+.back-to-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+@media (max-width: 1210px) {
+.hero, .flow { margin-left: 28px; margin-right: 28px; }
+.fact-grid { grid-template-columns: repeat(2, 1fr); }
+.flow { grid-template-columns: repeat(3, 1fr); }
+.flow i { display: none; }
+}
+@media (max-width: 870px) {
+:root { --sidebar-width: min(88vw, 330px); }
+.menu-button { display: inline-block; }
+.brand { min-width: 0; }
+.brand-copy small { display: none; }
+.sidebar { transform: translateX(-102%); transition: transform .22s ease; box-shadow: var(--shadow); }
+body.sidebar-open .sidebar { transform: translateX(0); }
+.page { margin-left: 0; }
+.hero { margin-top: 24px; padding: 36px 29px; }
+main { padding-left: 20px; padding-right: 20px; }
+main section.level2 { padding: 26px 24px 29px; }
+}
+@media (max-width: 610px) {
+.topbar { padding: 0 12px; gap: 9px; }
+.brand-mark { width: 35px; height: 35px; }
+.text-button { display: none; }
+.hero { margin: 16px 12px 20px; padding: 29px 21px; border-radius: 20px; }
+.hero > p { font-size: 16px; }
+.fact-grid { grid-template-columns: 1fr; }
+.flow { grid-template-columns: 1fr 1fr; margin: 0 12px 20px; gap: 10px; }
+main { padding: 0 12px 75px; }
+main section.level2 { margin: 15px 0; padding: 22px 18px 25px; border-radius: 16px; }
+h2 { font-size: 22px; }
+}
+@media print {
+:root { color-scheme: light; --text:#111; --muted:#333; --border:#ccc; --panel:#fff; --code:#f2f3f7; }
+body { background: #fff; font-size: 10.5pt; }
+.topbar, .sidebar, .reading-progress, .flow, .back-to-top, .copy-code { display: none !important; }
+.page { margin: 0; padding: 0; }
+.hero { margin: 0 0 18px; padding: 20px 0; border: 0; box-shadow: none; }
+.hero h1 { font-size: 29pt; }
+.fact-grid { grid-template-columns: repeat(4, 1fr); }
+main { max-width: none; padding: 0; }
+main section.level2 { break-inside: avoid; margin: 0 0 13px; padding: 14px 0; border-width: 1px 0 0; border-radius: 0; box-shadow: none; }
+pre { white-space: pre-wrap; color: #111; background: #f2f3f7; }
+a { color: #111; }
+}
+</style>
+</head>
+<body>
+  <div class="reading-progress" id="reading-progress"></div>
+
+  <header class="topbar">
+    <button class="icon-button menu-button" id="menu-button" type="button" aria-label="Open navigation">☰</button>
+    <a class="brand" href="#page-top" aria-label="ParaPhraser handbook home">
+      <span class="brand-mark">P</span>
+      <span class="brand-copy"><strong>ParaPhraser</strong><small>Engineering handbook</small></span>
+    </a>
+    <div class="top-actions">
+      <button class="text-button" id="print-button" type="button">Print / Save PDF</button>
+      <button class="icon-button" id="theme-button" type="button" aria-label="Switch color theme" title="Switch color theme">☀</button>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4" /></svg>
+      <input id="handbook-search" type="search" autocomplete="off" placeholder="Search the handbook…" aria-label="Search handbook">
+      <kbd>/</kbd>
+    </div>
+    <div class="search-status" id="search-status" aria-live="polite"></div>
+    <div class="toc-label">Contents</div>
+    <nav id="TOC" aria-label="Table of contents">
+<ul>
+<li><a href="#paraphraser-maintenance-and-debugging-handbook" id="toc-paraphraser-maintenance-and-debugging-handbook">ParaPhraser
+maintenance and debugging handbook</a>
+<ul>
+<li><a href="#1-what-the-application-is" id="toc-1-what-the-application-is">1. What the application is</a></li>
+<li><a href="#2-the-shortest-useful-mental-model" id="toc-2-the-shortest-useful-mental-model">2. The shortest useful
+mental model</a></li>
+<li><a href="#3-repository-map-and-ownership" id="toc-3-repository-map-and-ownership">3. Repository map and
+ownership</a></li>
+<li><a href="#4-toolchain-and-build-configuration" id="toc-4-toolchain-and-build-configuration">4. Toolchain and build
+configuration</a></li>
+<li><a href="#5-exact-startup-lifecycle" id="toc-5-exact-startup-lifecycle">5. Exact startup lifecycle</a></li>
+<li><a href="#6-global-hotkey-path" id="toc-6-global-hotkey-path">6.
+Global hotkey path</a></li>
+<li><a href="#7-selection-capture-step-by-step" id="toc-7-selection-capture-step-by-step">7. Selection capture, step by
+step</a></li>
+<li><a href="#8-overlay-ui-and-its-state" id="toc-8-overlay-ui-and-its-state">8. Overlay UI and its state</a></li>
+<li><a href="#9-coordinator-and-request-creation" id="toc-9-coordinator-and-request-creation">9. Coordinator and request
+creation</a></li>
+<li><a href="#10-ollama-request-contract" id="toc-10-ollama-request-contract">10. Ollama request contract</a></li>
+<li><a href="#11-english-only-output-from-multilingual-input" id="toc-11-english-only-output-from-multilingual-input">11. English-only
+output from multilingual input</a></li>
+<li><a href="#12-replace-mechanics-and-why-they-fail" id="toc-12-replace-mechanics-and-why-they-fail">12. Replace mechanics
+and why they fail</a></li>
+<li><a href="#13-clipboard-safety-rules" id="toc-13-clipboard-safety-rules">13. Clipboard safety rules</a></li>
+<li><a href="#14-ollama-operations-without-the-application" id="toc-14-ollama-operations-without-the-application">14. Ollama
+operations without the application</a></li>
+<li><a href="#15-tests-and-what-they-prove" id="toc-15-tests-and-what-they-prove">15. Tests and what they
+prove</a></li>
+<li><a href="#16-visual-studio-debugging-playbook" id="toc-16-visual-studio-debugging-playbook">16. Visual Studio debugging
+playbook</a></li>
+<li><a href="#17-symptom-to-cause-troubleshooting" id="toc-17-symptom-to-cause-troubleshooting">17. Symptom-to-cause
+troubleshooting</a></li>
+<li><a href="#18-run-at-windows-startup" id="toc-18-run-at-windows-startup">18. Run at Windows startup</a></li>
+<li><a href="#19-publishing-and-moving-the-app" id="toc-19-publishing-and-moving-the-app">19. Publishing and moving the
+app</a></li>
+<li><a href="#20-safely-changing-common-features" id="toc-20-safely-changing-common-features">20. Safely changing common
+features</a></li>
+<li><a href="#21-privacy-security-and-trust-boundaries" id="toc-21-privacy-security-and-trust-boundaries">21. Privacy, security,
+and trust boundaries</a></li>
+<li><a href="#22-known-architectural-limitations" id="toc-22-known-architectural-limitations">22. Known architectural
+limitations</a></li>
+<li><a href="#23-recovery-checklist-use-this-tomorrow-morning" id="toc-23-recovery-checklist-use-this-tomorrow-morning">23. Recovery
+checklist: use this tomorrow morning</a></li>
+<li><a href="#24-definition-of-a-healthy-release" id="toc-24-definition-of-a-healthy-release">24. Definition of a healthy
+release</a></li>
+</ul></li>
+</ul>
+    </nav>
+    <div class="sidebar-note"><span></span> Generated from the repository handbook</div>
+  </aside>
+
+  <div class="page" id="page-top">
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="badges">
+        <span class="badge badge-green">Offline-first</span>
+        <span class="badge">Windows desktop</span>
+        <span class="badge">Ollama · gemma3:4b</span>
+        <span class="badge">English output · always</span>
+      </div>
+      <h1>The complete <span>ParaPhraser</span><br>survival guide.</h1>
+      <p>Understand, run, debug, change, and recover the entire application without depending on its original author—or an AI assistant.</p>
+      <div class="fact-grid">
+        <article><small>LOCAL ENDPOINT</small><strong>127.0.0.1:11434</strong></article>
+        <article><small>GLOBAL SHORTCUTS</small><strong>Ctrl+Alt+G / Ctrl+Alt+R</strong></article>
+        <article><small>INPUT</small><strong>English · Hindi · Hinglish</strong></article>
+        <article><small>RUNTIME</small><strong>.NET 10 · Windows x64</strong></article>
+      </div>
+    </section>
+
+    <section class="flow" aria-label="Application runtime flow">
+      <article><b>01</b><strong>Hotkey</strong><span>Windows event</span></article>
+      <i>→</i>
+      <article><b>02</b><strong>Capture</strong><span>Selected text</span></article>
+      <i>→</i>
+      <article><b>03</b><strong>Compose</strong><span>Action + tone</span></article>
+      <i>→</i>
+      <article><b>04</b><strong>Generate</strong><span>Local Ollama</span></article>
+      <i>→</i>
+      <article><b>05</b><strong>Review</strong><span>Safe preview</span></article>
+      <i>→</i>
+      <article><b>06</b><strong>Replace</strong><span>Focus + paste</span></article>
+    </section>
+
+    <main id="handbook-content">
+<section id="paraphraser-maintenance-and-debugging-handbook" class="level1">
+<h1>ParaPhraser maintenance and debugging handbook</h1>
+<p>This is the self-contained technical manual for the current
+ParaPhraser project. It is written so that you can rebuild, run,
+diagnose, modify, and recover the application without needing its
+original author or an AI assistant.</p>
+<p>The guide describes the code as it exists now. When behavior and this
+document disagree, the source code is the final authority. After a
+meaningful architectural change, update this file in the same
+commit.</p>
+<section id="1-what-the-application-is" class="level2">
+<h2>1. What the application is</h2>
+<p>ParaPhraser is a Windows tray application with no normal main window.
+It waits in the background for a global keyboard shortcut, copies the
+text currently selected in another application, opens a WPF overlay near
+the mouse, sends an instruction and context to a local Ollama model, and
+lets the user copy or paste the result back into the original
+application.</p>
+<p>The default local model is <code>gemma3:4b</code>. The API stays on
+the local machine at <code>http://127.0.0.1:11434</code>; the
+application contains no cloud AI client and stores no rewrite
+history.</p>
+<p>Current user flow:</p>
+<ol type="1">
+<li>ParaPhraser starts, creates a tray icon, registers two Windows-wide
+shortcuts, and checks Ollama.</li>
+<li>The user selects text in Notepad, Teams, a browser, Outlook, or
+another application.</li>
+<li><code>Ctrl+Alt+G</code> starts in Fix grammar mode;
+<code>Ctrl+Alt+R</code> starts in Rewrite mode.</li>
+<li>ParaPhraser temporarily sends <code>Ctrl+C</code>, reads the
+selected text, and restores the previous clipboard.</li>
+<li>The overlay opens. The selected text and instruction are
+editable.</li>
+<li>The user chooses Fix grammar, Rewrite, or Shorten and a tone. The UI
+shows that output is always English.</li>
+<li>Generate sends a structured request to local Ollama.</li>
+<li>The model returns replacement text. ParaPhraser performs an extra
+correction request if the result is not English.</li>
+<li>Copy puts the result on the clipboard. Replace returns focus to the
+original window and sends <code>Ctrl+V</code>.</li>
+</ol>
+</section>
+<section id="2-the-shortest-useful-mental-model" class="level2">
+<h2>2. The shortest useful mental model</h2>
+<pre class="text"><code>Windows sign-in / manual launch
+        |
+        v
+App.xaml.cs -- mutex, tray icon, startup check, hotkey registration
+        |
+  Ctrl+Alt+G/R
+        |
+        v
+GlobalHotkeyService -- receives WM_HOTKEY
+        |
+        v
+RewriteCoordinator -- owns the complete operation
+        |
+        +--&gt; ClipboardSelectionService -- copy selection and restore clipboard
+        |
+        +--&gt; OverlayWindow -- edit context/options and click Generate
+                 |
+                 v
+        OllamaTextTransformer -- POST /api/chat to gemma3:4b
+                 |
+                 v
+        OverlayWindow -- review result
+                 |
+          Copy or Replace
+                 |
+                 v
+        ClipboardSelectionService -- reactivate original window and paste</code></pre>
+<p>If a failure happens, first locate its stage in this chain. This
+avoids changing Ollama code for a clipboard problem or changing UI code
+for a hotkey-registration problem.</p>
+</section>
+<section id="3-repository-map-and-ownership" class="level2">
+<h2>3. Repository map and ownership</h2>
+<pre class="text"><code>ParaPhraser/
+|-- global.json                         Required .NET SDK family
+|-- Directory.Build.props               Shared compiler rules
+|-- ParaPhraser.sln                      Solution containing all projects
+|-- README.md                            Short user-oriented setup guide
+|-- docs/
+|   |-- architecture.md                  Earlier architectural overview
+|   `-- maintenance-and-debugging-handbook.md  This manual
+|-- scripts/
+|   |-- build.ps1                        Restore + Release build + smoke tests
+|   `-- publish-win-x64.ps1              Self-contained single-file publish
+|-- src/
+|   |-- ParaPhraser.Core/                AI-independent domain and Ollama client
+|   |   |-- ITextTransformer.cs          Provider abstraction
+|   |   |-- RewriteRequest.cs            Everything sent into a transformation
+|   |   |-- RewriteResult.cs             Text/provider/duration result
+|   |   |-- RewriteContext.cs            App/window/optional surrounding text
+|   |   |-- RewriteMode.cs               Grammar/Rewrite/Shorten/Professional
+|   |   |-- RewriteTone.cs               Original/Polite/Professional/Casual/Emojified
+|   |   |-- WritingLanguage.cs            Source-language classification
+|   |   |-- WritingLanguageResolver.cs    Lightweight source/output detection
+|   |   |-- OllamaTextTransformer.cs      Local AI readiness, prompts, API calls
+|   |   |-- LocalAiStatus.cs              Ready flag and human-readable message
+|   |   |-- LocalAiUnavailableException.cs Expected local-AI outage error
+|   |   `-- DemoTextTransformer.cs        Deterministic smoke-test transformer
+|   `-- ParaPhraser.Desktop/             WPF/WinForms Windows shell
+|       |-- App.xaml                      Global colors and control templates
+|       |-- App.xaml.cs                   Process lifetime and composition root
+|       |-- OverlayWindow.xaml            Complete overlay UI
+|       |-- OverlayWindow.xaml.cs         UI state and event handlers
+|       |-- app.manifest                  asInvoker and Windows compatibility
+|       `-- Services/
+|           |-- GlobalHotkeyService.cs    RegisterHotKey + WM_HOTKEY sink
+|           |-- RewriteCoordinator.cs     Orchestrates capture/generate/replace
+|           |-- ClipboardSelectionService.cs Clipboard and focus workflow
+|           |-- ClipboardSnapshot.cs      Safe clipboard snapshot/restore
+|           |-- ClipboardRetry.cs         Async busy-clipboard retry policy
+|           |-- StartupRegistrationService.cs HKCU Run registration
+|           |-- NativeMethods.cs          user32.dll interop and SendInput
+|           |-- SelectionContext.cs       Text + original HWND + app metadata
+|           |-- HotkeyModifiers.cs        Win32 modifier enum
+|           `-- VirtualKey.cs             G/R virtual-key enum
+`-- tests/
+    `-- ParaPhraser.Core.SmokeTests/      Executable assertions, no test framework</code></pre>
+<p>The Core project must not depend on WPF, WinForms, the tray icon, or
+clipboard APIs. The Desktop project may depend on Core. Keeping that
+direction makes the AI behavior testable without launching the Windows
+UI.</p>
+</section>
+<section id="4-toolchain-and-build-configuration" class="level2">
+<h2>4. Toolchain and build configuration</h2>
+<section id="required-toolchain" class="level3">
+<h3>Required toolchain</h3>
+<ul>
+<li>Windows 10 or Windows 11, x64.</li>
+<li>.NET 10 SDK. <code>global.json</code> requests <code>10.0.100</code>
+and allows the latest compatible feature band. A newer installed .NET 10
+SDK such as <code>10.0.400</code> is valid.</li>
+<li>Visual Studio 2026/18.x with the <strong>.NET desktop
+development</strong> workload, or the <code>dotnet</code> CLI
+alone.</li>
+<li>Ollama and <code>gemma3:4b</code> for real transformations. Ollama
+is not needed for the normal deterministic smoke test.</li>
+</ul>
+<p>Visual Studio 2022 17.x does not support targeting .NET 10. It can
+produce confusing SDK/targeting errors even when the CLI works.</p>
+</section>
+<section id="important-compiler-rules" class="level3">
+<h3>Important compiler rules</h3>
+<p><code>Directory.Build.props</code> enables nullable references,
+implicit usings, the latest C# language version, deterministic builds,
+and <code>TreatWarningsAsErrors</code>. A warning therefore fails the
+build. Fix the warning; do not casually disable the rule.</p>
+<p>The Desktop project intentionally enables both:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode xml"><code class="sourceCode xml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">UseWPF</span>&gt;true&lt;/<span class="kw">UseWPF</span>&gt;</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>&lt;<span class="kw">UseWindowsForms</span>&gt;true&lt;/<span class="kw">UseWindowsForms</span>&gt;</span></code></pre></div>
+<p>WPF supplies the overlay and clipboard APIs. WinForms supplies
+<code>NotifyIcon</code> and its tray menu. Types such as
+<code>IDataObject</code>, <code>Clipboard</code>, <code>Point</code>,
+and <code>KeyEventArgs</code> exist in both frameworks, so use explicit
+aliases or fully qualified names when a compiler reports ambiguity. Do
+not remove WinForms just to hide the ambiguity; that breaks the tray
+integration.</p>
+</section>
+<section id="normal-clean-verification" class="level3">
+<h3>Normal clean verification</h3>
+<p>Run from <code>C:\Learning\ParaPhraser</code>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>dotnet <span class="op">--</span>info</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>dotnet restore <span class="op">.</span>\ParaPhraser<span class="op">.</span><span class="fu">sln</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>dotnet build <span class="op">.</span>\ParaPhraser<span class="op">.</span><span class="fu">sln</span> <span class="op">--</span>configuration Release <span class="op">--</span>no-restore</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>dotnet run <span class="op">--</span>project <span class="op">.</span>\tests\ParaPhraser<span class="op">.</span><span class="fu">Core</span><span class="op">.</span><span class="fu">SmokeTests</span>\ParaPhraser<span class="op">.</span><span class="fu">Core</span><span class="op">.</span><span class="fu">SmokeTests</span><span class="op">.</span><span class="fu">csproj</span> <span class="op">--</span>configuration Release <span class="op">--</span>no-build</span></code></pre></div>
+<p>The last line should print:</p>
+<pre class="text"><code>All ParaPhraser.Core smoke tests passed.</code></pre>
+<p>The repository shortcut for the same sequence is:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="op">.</span>\scripts\build<span class="op">.</span><span class="fu">ps1</span></span></code></pre></div>
+<p>To run the desktop app in Debug configuration:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>dotnet run <span class="op">--</span>project <span class="op">.</span>\src\ParaPhraser<span class="op">.</span><span class="fu">Desktop</span>\ParaPhraser<span class="op">.</span><span class="fu">Desktop</span><span class="op">.</span><span class="fu">csproj</span></span></code></pre></div>
+<p>There is no console window because the output type is
+<code>WinExe</code>. Successful startup is indicated by the ParaPhraser
+tray icon and its Ollama notification.</p>
+</section>
+</section>
+<section id="5-exact-startup-lifecycle" class="level2">
+<h2>5. Exact startup lifecycle</h2>
+<p><code>App.OnStartup</code> in
+<code>src/ParaPhraser.Desktop/App.xaml.cs</code> is the composition
+root. In order, it does the following:</p>
+<ol type="1">
+<li>Creates the named mutex <code>Local\ParaPhraser.Desktop</code>.</li>
+<li>If the mutex already exists, calls <code>Shutdown()</code>
+immediately. This is the single-instance guard.</li>
+<li>Creates <code>OverlayWindow</code>.</li>
+<li>Creates <code>ClipboardSelectionService</code>.</li>
+<li>reads <code>PARAPHRASER_OLLAMA_MODEL</code>; if blank,
+<code>OllamaTextTransformer</code> uses <code>gemma3:4b</code>.</li>
+<li>Creates <code>RewriteCoordinator</code> and connects its
+local-AI-unavailable event.</li>
+<li>Creates <code>GlobalHotkeyService</code>.</li>
+<li>Registers hotkey ID 1 as <code>Ctrl+Alt+G</code> and ID 2 as
+<code>Ctrl+Alt+R</code>.</li>
+<li>Creates the WinForms tray icon and menu.</li>
+<li>Starts <code>NotifyOllamaStatusAsync</code> without blocking
+startup.</li>
+<li>Registers a WPF dispatcher exception handler that displays unhandled
+UI errors in the overlay.</li>
+</ol>
+<p>At exit, <code>App.OnExit</code> unsubscribes events, unregisters
+hotkeys, disposes the hidden hotkey window and tray icon, closes the
+overlay, and releases the mutex.</p>
+<section id="ollama-startup-readiness-check" class="level3">
+<h3>Ollama startup readiness check</h3>
+<p>Startup performs up to five attempts. Each <code>GET /api/tags</code>
+attempt has a three-second cancellation timeout, with a two-second delay
+between failed attempts. The total worst-case wait is roughly 23
+seconds. It then shows one five-second tray balloon:</p>
+<ul>
+<li><strong>ParaPhraser is ready</strong> when the endpoint works and
+the exact configured model is listed.</li>
+<li><strong>Local AI isn&#39;t ready</strong> when Ollama is down, slow, or
+the model is absent.</li>
+</ul>
+<p>This readiness check is advisory. The tray application remains
+running even when Ollama is unavailable. Generate tries the API again
+and shows both an overlay error and warning balloon on a
+connection/model failure.</p>
+</section>
+</section>
+<section id="6-global-hotkey-path" class="level2">
+<h2>6. Global hotkey path</h2>
+<p><code>GlobalHotkeyService</code> creates a message-only Win32 window
+using WPF&#39;s <code>HwndSource</code>. It registers each shortcut with
+<code>RegisterHotKey</code> and automatically adds the
+<code>MOD_NOREPEAT</code> flag. Holding the shortcut therefore does not
+create repeated operations.</p>
+<p>Windows sends <code>WM_HOTKEY</code> (<code>0x0312</code>) to
+<code>WindowProcedure</code>. The service raises
+<code>HotkeyPressed</code> with the integer ID.
+<code>App.OnHotkeyPressed</code> maps ID 1 to Grammar and ID 2 to
+Rewrite, then calls <code>RewriteCoordinator.HandleAsync</code>.</p>
+<p>Registration failure throws <code>Win32Exception</code> with a
+message that the shortcut may already be used. Because registration
+occurs during startup, a debugger should be set to break on thrown
+<code>Win32Exception</code> when diagnosing a missing tray icon or an
+instant exit.</p>
+<p>To change a hotkey, update all three places that describe it:</p>
+<ol type="1">
+<li>The registration call and/or IDs in <code>App.xaml.cs</code>.</li>
+<li><code>VirtualKey.cs</code> if a new key is not defined.</li>
+<li>The disabled shortcut labels in <code>ConfigureTrayIcon</code> and
+the README/this guide.</li>
+</ol>
+</section>
+<section id="7-selection-capture-step-by-step" class="level2">
+<h2>7. Selection capture, step by step</h2>
+<p><code>RewriteCoordinator.HandleAsync</code> first attempts
+<code>SemaphoreSlim.WaitAsync(0)</code>. If another capture, generation,
+or replacement is active, the second hotkey is ignored. This prevents
+overlapping clipboard operations.</p>
+<p><code>ClipboardSelectionService.CaptureAsync</code> then:</p>
+<ol type="1">
+<li>Waits for Ctrl/Alt/Shift from the global shortcut to be released. It
+checks up to 40 times at 15 ms intervals.</li>
+<li>Calls <code>GetForegroundWindow</code>. This HWND is the future
+replacement target.</li>
+<li>Gets the target process name and window title. These are prompt
+context, not surrounding document text.</li>
+<li>Captures every available clipboard format with
+<code>ClipboardSnapshot</code>.</li>
+<li>Records <code>GetClipboardSequenceNumber</code>.</li>
+<li>Uses <code>SendInput</code> to send Ctrl+C.</li>
+<li>Polls the sequence number up to 20 times at 20 ms intervals, for
+about 400 ms maximum.</li>
+<li>Reads Unicode text. Blank selections and non-text selections are
+rejected.</li>
+<li>Returns
+<code>SelectionContext(Text, TargetWindowHandle, ApplicationName, WindowTitle)</code>.</li>
+<li>Restores the original clipboard in a <code>finally</code> block,
+including on failure.</li>
+</ol>
+<p>Every clipboard read/write runs through <code>ClipboardRetry</code>.
+For <code>CLIPBRD_E_CANT_OPEN</code>, it retries with increasing
+asynchronous delays of 25, 50, 100, 200, 350, 500, 750, and 1000 ms—roughly
+three seconds total. The awaits deliberately resume on the original STA
+dispatcher thread because WPF clipboard APIs require it. Clipboard contention
+is common on Windows because only one process can open the clipboard at a
+time.</p>
+<p>The overlay&#39;s “Selected context” editor changes what is sent to the
+model. It does <strong>not</strong> change the original selection target
+or selection range. Replace still pastes into the field/window captured
+at shortcut time.</p>
+<section id="what-context-currently-means" class="level3">
+<h3>What “context” currently means</h3>
+<p>The model receives:</p>
+<ul>
+<li>The editable selected text.</li>
+<li>The selected action and tone. English is the fixed output
+language.</li>
+<li>The editable one-off instruction.</li>
+<li>The original process name, for example <code>notepad</code> or
+<code>ms-teams</code>.</li>
+<li>The original window/document title when Windows exposes it.</li>
+</ul>
+<p><code>RewriteContext</code> has a <code>SurroundingText</code>
+property, but <code>RewriteCoordinator</code> currently does not
+populate it. ParaPhraser does not read the whole page, chat, email
+thread, or document. Adding UI Automation or application integrations
+would be required for true surrounding context.</p>
+</section>
+</section>
+<section id="8-overlay-ui-and-its-state" class="level2">
+<h2>8. Overlay UI and its state</h2>
+<p><code>OverlayWindow.xaml</code> is the entire visible product UI.
+<code>App.xaml</code> owns the global dark theme, brushes, buttons, and
+the custom ComboBox popup/template.</p>
+<p><code>OverlayWindow.ShowComposer</code> resets the screen for every
+fresh shortcut:</p>
+<ul>
+<li>Copies the captured selection into editable
+<code>OriginalText</code>.</li>
+<li>Copies the default instruction into editable
+<code>InstructionText</code>.</li>
+<li>Selects the action associated with the shortcut.</li>
+<li>Resets tone to Original. Output language is fixed to English and is
+not resettable.</li>
+<li>Hides any old result and disables Copy/Replace.</li>
+<li>Positions the window 12 device-independent pixels right and 16 down
+from the cursor, then clamps it inside the virtual desktop.</li>
+<li>Focuses the instruction field.</li>
+</ul>
+<p>Generate validates that selected context and instruction are not
+blank. <code>Ctrl+Enter</code> is the keyboard equivalent of Generate.
+Escape hides the window. The close button hides it too; WPF close is
+intercepted so the resident process keeps running. Only
+<code>CloseForShutdown</code> permits a real close.</p>
+<section id="fragile-but-important-dropdown-index-mappings" class="level3">
+<h3>Fragile but important dropdown index mappings</h3>
+<p>The XAML item order and code-behind <code>SelectedIndex</code>
+switches form a contract:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Dropdown index</th>
+<th>Action</th>
+<th>Tone</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0</td>
+<td>Fix grammar</td>
+<td>Original</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td>Rewrite</td>
+<td>Polite</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>Shorten</td>
+<td>Professional</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td>—</td>
+<td>Casual</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td>—</td>
+<td>Emojified</td>
+</tr>
+</tbody>
+</table>
+<p>Action mapping lives in <code>GetSelectedMode</code>; tone mapping
+lives inside <code>GenerateAsync</code>. If you reorder or insert
+<code>ComboBoxItem</code> elements in XAML, update those switches and
+add a smoke/UI test. Otherwise the label may say one thing while the
+model receives another enum. The language control is now a
+non-interactive <strong>English output · always</strong> badge.</p>
+<p>Changing Action updates the default instruction only when the
+instruction box is blank or still equals the previous default. A
+manually edited instruction is preserved.</p>
+</section>
+</section>
+<section id="9-coordinator-and-request-creation" class="level2">
+<h2>9. Coordinator and request creation</h2>
+<p><code>RewriteCoordinator</code> is deliberately the only class that
+knows the complete operation. Its two main phases are:</p>
+<section id="handle-phase" class="level3">
+<h3>Handle phase</h3>
+<p><code>HandleAsync</code> captures <code>SelectionContext</code> and
+gives the overlay a callback. If capture returns null, it displays
+“Select some editable text, then press the shortcut again.” The callback
+closes over the original context so later replacement knows which HWND
+to reactivate.</p>
+</section>
+<section id="generate-phase" class="level3">
+<h3>Generate phase</h3>
+<p><code>GenerateAsync</code> creates:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode csharp"><code class="sourceCode cs"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">new</span> <span class="fu">RewriteRequest</span><span class="op">(</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    selectedText<span class="op">,</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    mode<span class="op">,</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    instruction<span class="op">,</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">new</span> <span class="fu">RewriteContext</span><span class="op">(</span>context<span class="op">.</span><span class="fu">ApplicationName</span><span class="op">,</span> context<span class="op">.</span><span class="fu">WindowTitle</span><span class="op">),</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    tone<span class="op">)</span></span></code></pre></div>
+<p>It calls <code>ITextTransformer.TransformAsync</code>. This interface
+is the provider boundary: replacing Ollama with another local engine
+should require a new transformer implementation, not changes to
+clipboard/UI code.</p>
+<p><code>LocalAiUnavailableException</code> is treated specially: its
+text appears in the overlay and fires <code>LocalAiUnavailable</code>,
+which produces a warning balloon. Other exceptions appear only in the
+overlay.</p>
+</section>
+</section>
+<section id="10-ollama-request-contract" class="level2">
+<h2>10. Ollama request contract</h2>
+<p><code>OllamaTextTransformer</code> owns all local-model behavior.</p>
+<section id="endpoint-and-timeout" class="level3">
+<h3>Endpoint and timeout</h3>
+<ul>
+<li>Base URL: <code>http://127.0.0.1:11434/</code></li>
+<li>Readiness: <code>GET api/tags</code></li>
+<li>Generation: <code>POST api/chat</code></li>
+<li>HTTP timeout: two minutes</li>
+<li>Default model: <code>gemma3:4b</code></li>
+<li>Streaming: disabled</li>
+<li>Main temperature: <code>0.2</code></li>
+<li>Context window requested: <code>8192</code> tokens</li>
+</ul>
+<p>The main JSON shape is equivalent to:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;model&quot;</span><span class="fu">:</span> <span class="st">&quot;gemma3:4b&quot;</span><span class="fu">,</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;stream&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;messages&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;role&quot;</span><span class="fu">:</span> <span class="st">&quot;system&quot;</span><span class="fu">,</span> <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="st">&quot;multilingual writing policy...&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;role&quot;</span><span class="fu">:</span> <span class="st">&quot;user&quot;</span><span class="fu">,</span> <span class="dt">&quot;content&quot;</span><span class="fu">:</span> <span class="st">&quot;structured prompt...&quot;</span> <span class="fu">}</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;options&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;temperature&quot;</span><span class="fu">:</span> <span class="fl">0.2</span><span class="fu">,</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;num_ctx&quot;</span><span class="fu">:</span> <span class="dv">8192</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>The user prompt is assembled with these headings:</p>
+<pre class="text"><code>INSTRUCTION
+&lt;editable one-off instruction&gt;
+
+TONE
+&lt;tone-specific rule&gt;
+
+REQUIRED OUTPUT LANGUAGE
+&lt;detected or explicitly selected language rule&gt;
+
+SOURCE CONTEXT
+Application: &lt;process name&gt;
+Window or document: &lt;window title&gt;
+Surrounding text: &lt;only if supplied; currently absent&gt;
+
+SELECTED TEXT TO REPLACE
+&lt;editable selected text&gt;</code></pre>
+<p>The system prompt tells the model to return English replacement text
+only, translate every non-English part, and preserve names, dates,
+facts, links, formatting intent, and commitments. The English-only rule
+also overrides a conflicting editable instruction such as “answer in
+Hindi.” This is probabilistic behavior, not a mathematical guarantee;
+the result is intentionally shown for review before replacement.</p>
+</section>
+<section id="tone-behavior" class="level3">
+<h3>Tone behavior</h3>
+<ul>
+<li>Original preserves the selected text&#39;s tone.</li>
+<li>Polite requests considerate and courteous wording without excessive
+formality.</li>
+<li>Professional requests polished, confident, workplace-appropriate
+wording.</li>
+<li>Casual requests relaxed, friendly, conversational wording.</li>
+<li>Emojified requests a small number of relevant emojis while
+preserving facts.</li>
+</ul>
+<p>Mode and tone are independent. “Fix grammar + Professional” corrects
+grammar and changes tone; “Rewrite + Original” rewrites while trying to
+preserve tone.</p>
+</section>
+</section>
+<section id="11-english-only-output-from-multilingual-input" class="level2">
+<h2>11. English-only output from multilingual input</h2>
+<p>English is now a non-negotiable application rule rather than a
+dropdown preference. English input is corrected or rewritten in English.
+Hindi, Hinglish, and other non-English input is translated into natural
+English while applying the chosen action, tone, and instruction.</p>
+<table>
+<thead>
+<tr>
+<th>Input/selection</th>
+<th>Source classification</th>
+<th>Required model output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>English</td>
+<td>English</td>
+<td>English</td>
+</tr>
+<tr>
+<td>Any Devanagari text</td>
+<td>Hindi</td>
+<td>Natural English translation/rewrite</td>
+</tr>
+<tr>
+<td>Latin text with at least 2 known Hinglish tokens</td>
+<td>Hinglish</td>
+<td>Natural English translation/rewrite</td>
+</tr>
+<tr>
+<td>Another non-English script</td>
+<td>Other/unknown to the lightweight resolver</td>
+<td>Natural English translation/rewrite</td>
+</tr>
+</tbody>
+</table>
+<p><code>WritingLanguageResolver</code> remains a small deterministic
+source/draft heuristic, not a full language identifier:</p>
+<ol type="1">
+<li>Any character from Unicode U+0900–U+097F classifies the source as
+Hindi.</li>
+<li>Otherwise it extracts <code>[A-Za-z]+</code> tokens and counts words
+in <code>HinglishWords</code>.</li>
+<li>Two or more known words classify it as Hinglish; otherwise it
+classifies it as English.</li>
+</ol>
+<p>The classification tailors the prompt and detects common bad drafts;
+it no longer selects the output language. The main system instruction
+separately says that any language must become English, so unsupported
+source classifications still receive the English-only rule.</p>
+<p>To improve Romanized Hindi detection, update the
+<code>HinglishWords</code> set in
+<code>WritingLanguageResolver.cs</code> and add positive and negative
+assertions to the smoke tests. Avoid common English words because false
+positives could reject a valid English draft.</p>
+<section id="english-correction-pass" class="level3">
+<h3>English correction pass</h3>
+<p>After the main response, <code>CorrectLanguageIfNeededAsync</code>
+verifies that the draft:</p>
+<ul>
+<li>Is classified as English rather than known Hindi/Hinglish.</li>
+<li>Contains no letter from a non-Latin script. Latin accented letters
+are allowed so names are not unnecessarily rejected.</li>
+<li>May still contain punctuation, numbers, URLs, symbols, and
+emojis.</li>
+</ul>
+<p>If validation fails, a second Ollama request uses an English-only
+system prompt, temperature <code>0.1</code>, and the original text, user
+instruction, and incorrect draft. That system prompt explicitly
+overrides conflicting language instructions. If the corrected response
+is still non-English, the app shows an error instead of presenting it.
+One click can therefore take twice as long when the first draft violates
+the English-only contract.</p>
+</section>
+</section>
+<section id="12-replace-mechanics-and-why-they-fail" class="level2">
+<h2>12. Replace mechanics and why they fail</h2>
+<p>Replace is not an editor integration. It is a carefully guarded
+focus-and-paste operation.</p>
+<p><code>ClipboardSelectionService.ReplaceAsync</code>:</p>
+<ol type="1">
+<li>Snapshots the user&#39;s current clipboard.</li>
+<li>Confirms the captured target HWND still exists with
+<code>IsWindow</code>.</li>
+<li>Tries up to 12 times, 50 ms apart, to return foreground focus to
+that HWND.</li>
+<li>Puts replacement Unicode text on the clipboard.</li>
+<li>Waits 60 ms and reads the clipboard back to verify the exact
+text.</li>
+<li>Rechecks the foreground window and refocuses if necessary.</li>
+<li>Records the new clipboard sequence number.</li>
+<li>Sends Ctrl+V with <code>SendInput</code>.</li>
+<li>Waits 750 ms for the target application to process the paste.</li>
+<li>Restores the previous clipboard only if no other application changed
+it during the paste. Restoration uses the full busy-clipboard retry
+policy.</li>
+</ol>
+<p>The sequence-number guard is essential. Without it, ParaPhraser could
+overwrite something the user copied while a slow target was pasting.
+Restoration is intentionally best-effort: if Ctrl+V already succeeded but
+Teams continues holding the clipboard after all retries, ParaPhraser leaves
+the replacement text on the clipboard and keeps the overlay closed. A
+secondary restore failure must not make a successful replacement look
+unsuccessful.</p>
+<p>Common limitations:</p>
+<ul>
+<li>Replacement is plain Unicode text, so rich formatting can be
+lost.</li>
+<li>The original selection can disappear when another window gains
+focus. Many editors preserve it, some do not.</li>
+<li>Windows User Interface Privilege Isolation blocks a normal process
+from sending input to an administrator-elevated target. Run both at the
+same privilege level; do not routinely run ParaPhraser as
+administrator.</li>
+<li>Browser editors, Teams, Outlook, Electron editors, remote desktops,
+and custom controls have different focus/paste behavior. Always
+establish a baseline in Notepad.</li>
+<li>If generation takes a long time and the target document/window
+closes, its HWND is no longer valid; Copy remains the safe
+fallback.</li>
+</ul>
+<p>The first tuning constants for a slow editor are
+<code>FocusAttempts</code>, <code>FocusAttemptDelayMilliseconds</code>,
+<code>ClipboardReadyDelayMilliseconds</code>, and
+<code>PasteProcessingDelayMilliseconds</code> in
+<code>ClipboardSelectionService.cs</code>. Increase them conservatively;
+every increase affects perceived responsiveness.</p>
+</section>
+<section id="13-clipboard-safety-rules" class="level2">
+<h2>13. Clipboard safety rules</h2>
+<p>Do not simplify clipboard code without preserving these
+invariants:</p>
+<ul>
+<li>Capture and restore happen inside <code>try/finally</code>.</li>
+<li>All clipboard work runs on the WPF UI thread, which is STA.</li>
+<li>Unicode text is used explicitly.</li>
+<li>Every clipboard read and write retries
+<code>CLIPBRD_E_CANT_OPEN</code> asynchronously for roughly three
+seconds.</li>
+<li>Replace verifies the value after setting it.</li>
+<li>Replace restores the prior clipboard only when the sequence number
+proves no third party changed it.</li>
+<li>A busy-clipboard failure while restoring after a successful paste is
+non-fatal and must not reopen the overlay.</li>
+</ul>
+<p>When fixing WPF/WinForms ambiguity, the intended clipboard types
+are:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode csharp"><code class="sourceCode cs"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> Clipboard <span class="op">=</span> System<span class="op">.</span><span class="fu">Windows</span><span class="op">.</span><span class="fu">Clipboard</span><span class="op">;</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> TextDataFormat <span class="op">=</span> System<span class="op">.</span><span class="fu">Windows</span><span class="op">.</span><span class="fu">TextDataFormat</span><span class="op">;</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> IDataObject <span class="op">=</span> System<span class="op">.</span><span class="fu">Windows</span><span class="op">.</span><span class="fu">IDataObject</span><span class="op">;</span></span></code></pre></div>
+<p>The tray types remain <code>System.Windows.Forms.NotifyIcon</code>,
+<code>ContextMenuStrip</code>, <code>ToolStripMenuItem</code>, and
+<code>ToolTipIcon</code>.</p>
+</section>
+<section id="14-ollama-operations-without-the-application" class="level2">
+<h2>14. Ollama operations without the application</h2>
+<p>If <code>ollama</code> is not found after installation, open a new
+terminal or call the installed executable directly:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="op">&amp;</span> <span class="st">&quot;</span><span class="va">$env</span><span class="op">:</span><span class="va">LOCALAPPDATA</span><span class="st">\Programs\Ollama\ollama.exe&quot;</span> <span class="op">--</span>version</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="op">&amp;</span> <span class="st">&quot;</span><span class="va">$env</span><span class="op">:</span><span class="va">LOCALAPPDATA</span><span class="st">\Programs\Ollama\ollama.exe&quot;</span> list</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="op">&amp;</span> <span class="st">&quot;</span><span class="va">$env</span><span class="op">:</span><span class="va">LOCALAPPDATA</span><span class="st">\Programs\Ollama\ollama.exe&quot;</span> <span class="fu">ps</span></span></code></pre></div>
+<p>Install or repair the model:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>ollama pull gemma3<span class="op">:</span>4b</span></code></pre></div>
+<p>Check the server and port:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>Test-NetConnection <span class="dv">127.0</span><span class="op">.</span><span class="dv">0.1</span> <span class="op">-</span>Port <span class="dv">11434</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="dt">Invoke</span><span class="op">-</span>RestMethod http<span class="op">://</span><span class="dv">127.0</span><span class="op">.</span><span class="dv">0.1</span><span class="op">:</span><span class="dv">11434</span><span class="op">/</span>api<span class="op">/</span>tags <span class="op">|</span> <span class="fu">ConvertTo-Json</span> <span class="op">-</span>Depth <span class="dv">6</span></span></code></pre></div>
+<p>Make a direct model request, bypassing ParaPhraser:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="va">$body</span> <span class="op">=</span> @<span class="op">{</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    model <span class="op">=</span> <span class="st">&#39;gemma3:4b&#39;</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    stream <span class="op">=</span> <span class="va">$false</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    messages <span class="op">=</span> <span class="op">@(</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        @<span class="op">{</span> role <span class="op">=</span> <span class="st">&#39;user&#39;</span><span class="op">;</span> content <span class="op">=</span> <span class="st">&#39;Rewrite professionally: kal report bhej dunga&#39;</span> <span class="op">}</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">)</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="op">|</span> <span class="fu">ConvertTo-Json</span> <span class="op">-</span>Depth <span class="dv">6</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="dt">Invoke</span><span class="op">-</span>RestMethod `</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span>Uri http<span class="op">://</span><span class="dv">127.0</span><span class="op">.</span><span class="dv">0.1</span><span class="op">:</span><span class="dv">11434</span><span class="op">/</span>api<span class="op">/</span>chat `</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span>Method Post `</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span>ContentType <span class="st">&#39;application/json&#39;</span> `</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span>Body <span class="va">$body</span></span></code></pre></div>
+<p>Interpretation:</p>
+<ul>
+<li>Port check fails: Ollama process/server problem.</li>
+<li><code>/api/tags</code> works but <code>gemma3:4b</code> is absent:
+model-installation or model-name problem.</li>
+<li>Direct chat fails or is slow: Ollama/model/GPU problem, not
+ParaPhraser UI.</li>
+<li>Direct chat works but Generate fails: inspect request construction,
+deserialization, or app exception handling.</li>
+</ul>
+<p>On a machine with NVIDIA graphics, <code>nvidia-smi</code> shows GPU
+memory/use. The first request can be slow while Ollama loads the model.
+<code>ollama ps</code> shows whether the model is loaded and whether it
+is using GPU or CPU.</p>
+<section id="choosing-another-installed-model" class="level3">
+<h3>Choosing another installed model</h3>
+<p>For one PowerShell process:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="va">$env</span><span class="op">:</span><span class="va">PARAPHRASER_OLLAMA_MODEL</span> <span class="op">=</span> <span class="st">&#39;another-model:tag&#39;</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>dotnet run <span class="op">--</span>project <span class="op">.</span>\src\ParaPhraser<span class="op">.</span><span class="fu">Desktop</span>\ParaPhraser<span class="op">.</span><span class="fu">Desktop</span><span class="op">.</span><span class="fu">csproj</span></span></code></pre></div>
+<p>For the current Windows user:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="op">[</span>Environment<span class="op">]::</span>SetEnvironmentVariable<span class="op">(</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;PARAPHRASER_OLLAMA_MODEL&#39;</span><span class="op">,</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;another-model:tag&#39;</span><span class="op">,</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;User&#39;</span><span class="op">)</span></span></code></pre></div>
+<p>Sign out/in or restart the application after changing a user
+environment variable. To return to the built-in default, set the user
+value to <code>$null</code>. A model change affects readiness checks and
+generation; the exact name must appear in <code>/api/tags</code>.</p>
+</section>
+</section>
+<section id="15-tests-and-what-they-prove" class="level2">
+<h2>15. Tests and what they prove</h2>
+<p>The smoke-test project is a console executable with a local
+<code>Require</code> helper. It currently verifies:</p>
+<ul>
+<li>Deterministic demo grammar, rewrite, and professional
+transformations.</li>
+<li>Hindi detection from Devanagari.</li>
+<li>Hinglish detection from known Latin tokens.</li>
+<li>English detection.</li>
+</ul>
+<p>Normal test runs use <code>DemoTextTransformer</code>; they prove
+domain wiring but do not prove Ollama is installed or that the model
+follows prompts.</p>
+<p>The opt-in local-AI test makes real Ollama calls:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="va">$env</span><span class="op">:</span><span class="va">PARAPHRASER_RUN_LOCAL_AI_TESTS</span> <span class="op">=</span> <span class="st">&#39;1&#39;</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>dotnet run <span class="op">--</span>project <span class="op">.</span>\tests\ParaPhraser<span class="op">.</span><span class="fu">Core</span><span class="op">.</span><span class="fu">SmokeTests</span>\ParaPhraser<span class="op">.</span><span class="fu">Core</span><span class="op">.</span><span class="fu">SmokeTests</span><span class="op">.</span><span class="fu">csproj</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="fu">Remove-Item</span> Env<span class="op">:</span>PARAPHRASER_RUN_LOCAL_AI_TESTS</span></code></pre></div>
+<p>It checks that both Hindi and Hinglish become English. It also passes
+an English source with the conflicting instruction “Translate this into
+Hindi” and verifies that the result remains English, proving that the
+application-level output rule wins. Because model output is
+probabilistic, treat repeated failures as either a prompt/model
+regression or an inadequate validation heuristic, and inspect the
+printed text before changing assertions.</p>
+<p>There are currently no automated tests for global hotkeys, WPF
+controls, clipboard restoration, focus recovery, tray startup, or
+replacement across third-party editors. Those require integration/UI
+testing or a manual compatibility matrix.</p>
+</section>
+<section id="16-visual-studio-debugging-playbook" class="level2">
+<h2>16. Visual Studio debugging playbook</h2>
+<p>Use Visual Studio 2026, set <code>ParaPhraser.Desktop</code> as the
+startup project, and press F5. Before doing so, exit any already-running
+tray instance. Otherwise the new process encounters the named mutex and
+exits immediately.</p>
+<p>Useful breakpoint sequence:</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Method to break in</th>
+<th>Inspect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Process start</td>
+<td><code>App.OnStartup</code></td>
+<td><code>isFirstInstance</code>, <code>configuredModel</code></td>
+</tr>
+<tr>
+<td>Hotkey registration</td>
+<td><code>GlobalHotkeyService.Register</code></td>
+<td>ID, modifiers, return value/error</td>
+</tr>
+<tr>
+<td>Hotkey received</td>
+<td><code>GlobalHotkeyService.WindowProcedure</code></td>
+<td><code>message</code>, <code>wParam</code></td>
+</tr>
+<tr>
+<td>Mode mapping</td>
+<td><code>App.OnHotkeyPressed</code></td>
+<td><code>hotkeyId</code>, <code>mode</code></td>
+</tr>
+<tr>
+<td>Capture begins</td>
+<td><code>ClipboardSelectionService.CaptureAsync</code></td>
+<td><code>targetWindow</code>, sequence number</td>
+</tr>
+<tr>
+<td>Capture result</td>
+<td><code>RewriteCoordinator.HandleAsync</code></td>
+<td><code>context.Text</code>, app name/title</td>
+</tr>
+<tr>
+<td>UI choices</td>
+<td><code>OverlayWindow.GenerateAsync</code></td>
+<td>edited text, instruction, indices/enums</td>
+</tr>
+<tr>
+<td>Request creation</td>
+<td><code>RewriteCoordinator.GenerateAsync</code></td>
+<td>full <code>RewriteRequest</code></td>
+</tr>
+<tr>
+<td>Ollama call</td>
+<td><code>OllamaTextTransformer.TransformAsync</code></td>
+<td><code>_model</code>, payload, response status</td>
+</tr>
+<tr>
+<td>Language validation</td>
+<td><code>CorrectLanguageIfNeededAsync</code></td>
+<td>detected language, draft, corrected text</td>
+</tr>
+<tr>
+<td>Replace click</td>
+<td><code>OverlayWindow.ReplaceAsync</code></td>
+<td><code>_replaceAsync</code> and exception</td>
+</tr>
+<tr>
+<td>Focus/paste</td>
+<td><code>ClipboardSelectionService.ReplaceAsync</code></td>
+<td>target HWND, foreground HWND, sequences</td>
+</tr>
+</tbody>
+</table>
+<p>In <strong>Debug &gt; Windows &gt; Exception Settings</strong>,
+enable break-on-thrown temporarily for:</p>
+<ul>
+<li><code>System.ComponentModel.Win32Exception</code></li>
+<li><code>System.Runtime.InteropServices.COMException</code></li>
+<li><code>ParaPhraser.Core.LocalAiUnavailableException</code></li>
+<li><code>System.InvalidOperationException</code></li>
+</ul>
+<p>The application catches several of these to show friendly UI.
+Breaking only on unhandled exceptions can therefore miss the original
+failure location.</p>
+<p>For temporary diagnostics, use
+<code>System.Diagnostics.Debug.WriteLine</code> and read Visual Studio&#39;s
+<strong>Output &gt; Debug</strong> pane. Never log selected text by
+default. Useful safe values are stage names, HWND values, elapsed times,
+HTTP status codes, model name, language enum, and clipboard sequence
+numbers.</p>
+</section>
+<section id="17-symptom-to-cause-troubleshooting" class="level2">
+<h2>17. Symptom-to-cause troubleshooting</h2>
+<section id="the-sdk-microsoftnetsdk-specified-could-not-be-found" class="level3">
+<h3>“The SDK &#39;Microsoft.NET.Sdk&#39; specified could not be found”</h3>
+<p>Run:</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">where</span><span class="op">.</span><span class="fu">exe</span> dotnet</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>dotnet <span class="op">--</span>list-sdks</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>dotnet <span class="op">--</span>info</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="op">&amp;</span> <span class="st">&#39;C:\Program Files\dotnet\dotnet.exe&#39;</span> <span class="op">--</span>list-sdks</span></code></pre></div>
+<p>Likely causes:</p>
+<ul>
+<li>PATH resolves to
+<code>C:\Program Files (x86)\dotnet\dotnet.exe</code>, which has no
+matching SDK. Put <code>C:\Program Files\dotnet</code> first or use the
+x64 executable directly.</li>
+<li>.NET 10 SDK is missing. Install it; a .NET runtime alone is
+insufficient.</li>
+<li>Visual Studio 2022 is trying to load a .NET 10 project. Use Visual
+Studio 2026 or the CLI.</li>
+<li>A Visual Studio 2026 installation/workload is incomplete.
+Repair/install <strong>.NET desktop development</strong>.</li>
+<li><code>global.json</code> requests an SDK family not installed. Do
+not change it blindly; first inspect installed SDKs and understand
+roll-forward.</li>
+<li>If a managed coding sandbox alone reports access denied for
+<code>C:\Users\&lt;you&gt;\AppData\Local\Microsoft SDKs</code>, but the
+same command succeeds in your normal x64 PowerShell, that is a sandbox
+permission boundary rather than a broken project or missing SDK. Use the
+normal terminal for the build or grant the narrowly requested build
+permission.</li>
+</ul>
+</section>
+<section id="build-reports-msb3021-msb3026-or-msb3027-and-a-locked-dllexe" class="level3">
+<h3>Build reports <code>MSB3021</code>, <code>MSB3026</code>, or
+<code>MSB3027</code> and a locked DLL/exe</h3>
+<p>The running tray app is holding its build output. Right-click its
+tray icon and choose Exit, or inspect the exact process:</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Get-Process</span> ParaPhraser <span class="op">-</span>ErrorAction SilentlyContinue</span></code></pre></div>
+<p>If necessary, stop only the confirmed process ID:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Stop-Process</span> <span class="op">-</span>Id <span class="op">&lt;</span>confirmed-pid<span class="op">&gt;</span></span></code></pre></div>
+<p>Then rebuild. Do not terminate broad groups of <code>dotnet</code>
+processes; they may belong to other work.</p>
+</section>
+<section id="compiler-says-idataobject-or-keyeventargs-is-ambiguous" class="level3">
+<h3>Compiler says <code>IDataObject</code> or <code>KeyEventArgs</code>
+is ambiguous</h3>
+<p>This is expected when both WPF and WinForms are enabled. Qualify the
+intended WPF type, for example:</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode csharp"><code class="sourceCode cs"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> IDataObject <span class="op">=</span> System<span class="op">.</span><span class="fu">Windows</span><span class="op">.</span><span class="fu">IDataObject</span><span class="op">;</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> Clipboard <span class="op">=</span> System<span class="op">.</span><span class="fu">Windows</span><span class="op">.</span><span class="fu">Clipboard</span><span class="op">;</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> Point <span class="op">=</span> System<span class="op">.</span><span class="fu">Windows</span><span class="op">.</span><span class="fu">Point</span><span class="op">;</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="dt">void</span> <span class="fu">Handler</span><span class="op">(</span><span class="dt">object</span> sender<span class="op">,</span> System<span class="op">.</span><span class="fu">Windows</span><span class="op">.</span><span class="fu">Input</span><span class="op">.</span><span class="fu">KeyEventArgs</span> e<span class="op">)</span></span></code></pre></div>
+<p>Do the same for <code>TextDataFormat</code> or
+<code>SelectionChangedEventArgs</code> if needed.</p>
+</section>
+<section id="warningerror-wfo0003-about-high-dpi-settings" class="level3">
+<h3>Warning/error WFO0003 about high-DPI settings</h3>
+<p>The project places DPI configuration in the project file with
+<code>ApplicationHighDpiMode=PerMonitorV2</code>. Do not re-add legacy
+DPI elements to <code>app.manifest</code>; with warnings-as-errors, the
+Windows Forms analyzer can fail the build.</p>
+</section>
+<section id="app-starts-but-there-is-no-window" class="level3">
+<h3>App starts but there is no window</h3>
+<p>That is normal: ParaPhraser has no main window. Check the
+notification area and its hidden-icons menu. If there is no tray icon,
+debug <code>App.OnStartup</code>, hotkey registration, and
+<code>ConfigureTrayIcon</code>.</p>
+</section>
+<section id="app-exits-immediately-under-the-debugger" class="level3">
+<h3>App exits immediately under the debugger</h3>
+<p>An older ParaPhraser process probably owns
+<code>Local\ParaPhraser.Desktop</code>. Exit the tray instance and
+retry. If none exists, break in <code>OnStartup</code> and inspect
+<code>isFirstInstance</code> and startup exceptions.</p>
+</section>
+<section id="tray-icon-exists-but-shortcuts-do-nothing" class="level3">
+<h3>Tray icon exists but shortcuts do nothing</h3>
+<ol type="1">
+<li>Confirm shortcuts are <code>Ctrl+Alt+G</code> and
+<code>Ctrl+Alt+R</code>.</li>
+<li>Try Notepad with ordinary selected text.</li>
+<li>Break in <code>WindowProcedure</code>; if not hit,
+registration/window-message delivery is the problem.</li>
+<li>If hit, step through <code>OnHotkeyPressed</code> and
+<code>HandleAsync</code>.</li>
+<li>Confirm a second operation is not holding
+<code>_singleOperation</code>; rapid repeated shortcuts are
+intentionally ignored.</li>
+</ol>
+</section>
+<section id="overlay-says-to-select-editable-text-even-though-text-looks-selected" class="level3">
+<h3>Overlay says to select editable text even though text looks
+selected</h3>
+<p>The Ctrl+C capture did not change the clipboard within about 400 ms,
+or the target did not publish Unicode text. Test Ctrl+C manually in that
+control. Try Notepad. A slow target may require a larger polling window;
+a protected/custom control may require future UI Automation support.</p>
+</section>
+<section id="ollama-notification-says-it-is-not-ready" class="level3">
+<h3>Ollama notification says it is not ready</h3>
+<p>Run the port, <code>/api/tags</code>, <code>ollama list</code>, and
+direct chat checks in section 14. Match the configured model name
+exactly. Starting the Ollama desktop app/server and running
+<code>ollama pull gemma3:4b</code> resolves the common cases.</p>
+</section>
+<section id="generate-waits-a-long-time" class="level3">
+<h3>Generate waits a long time</h3>
+<p>Check <code>ollama ps</code> and GPU use. The first call can load the
+model. Very long editable context consumes the 8192-token window and
+more inference time. A failed language validation can cause a second
+request. The application timeout is two minutes; shorten context before
+increasing it.</p>
+</section>
+<section id="hindi-or-hinglish-is-not-fully-translated-into-english" class="level3">
+<h3>Hindi or Hinglish is not fully translated into English</h3>
+<p>There is no language dropdown to fix this manually because English is
+already mandatory. Put a breakpoint in
+<code>CorrectLanguageIfNeededAsync</code>, inspect
+<code>IsEnglishOutput</code>, and confirm the strict second request
+runs. For Romanized Hindi that the small dictionary misses, add
+genuinely diagnostic tokens to <code>HinglishWords</code> plus positive
+and negative tests. If the model repeatedly fails the strict pass, try a
+shorter selection or a stronger local model before weakening
+validation.</p>
+</section>
+<section id="a-dropdown-label-produces-the-wrong-behavior" class="level3">
+<h3>A dropdown label produces the wrong behavior</h3>
+<p>Compare the Action/Tone XAML item order against the index table in
+section 8 and the switches in
+<code>OverlayWindow.GenerateAsync</code>/<code>GetSelectedMode</code>.
+This is almost always an order-mapping mismatch. Output language has no
+index mapping.</p>
+</section>
+<section id="replace-does-nothing-pastes-elsewhere-or-loses-the-selection" class="level3">
+<h3>Replace does nothing, pastes elsewhere, or loses the selection</h3>
+<ol type="1">
+<li>Verify Copy works. If not, the result stage is the problem rather
+than replacement.</li>
+<li>Test Replace in Notepad.</li>
+<li>Break in <code>ClipboardSelectionService.ReplaceAsync</code> and
+compare <code>context.TargetWindowHandle</code> with
+<code>GetForegroundWindow()</code>.</li>
+<li>Confirm the original window still exists and is not elevated above
+ParaPhraser.</li>
+<li>Increase focus or paste timing only if the debugger proves a timing
+failure.</li>
+<li>Use Copy as the safe fallback for incompatible rich editors.</li>
+</ol>
+</section>
+<section id="overlay-reappears-after-replace-with-clipbrd_e_cant_open" class="level3">
+<h3>Overlay reappears after Replace with
+<code>CLIPBRD_E_CANT_OPEN</code></h3>
+<p>This means another process retained exclusive clipboard access. Current
+code routes every clipboard operation through <code>ClipboardRetry</code>. A
+failure before Ctrl+V shows the friendly “Another application is temporarily
+using the clipboard” message because replacement did not happen. A failure
+only while restoring the old clipboard after Ctrl+V is swallowed after the
+full retry window, leaves the generated text on the clipboard, and does not
+reopen the overlay. If the raw COM error reappears, confirm the running tray
+process was rebuilt/restarted and place breakpoints in
+<code>ClipboardRetry.ExecuteAsync</code>,
+<code>ClipboardSnapshot.TryRestoreAsync</code>, and
+<code>OverlayWindow.ReplaceAsync</code>.</p>
+</section>
+<section id="the-users-old-clipboard-content-disappears" class="level3">
+<h3>The user&#39;s old clipboard content disappears</h3>
+<p>Break in
+<code>ClipboardSnapshot.CaptureAsync/TryRestoreAsync</code> and record
+sequence numbers, without logging contents. Confirm all capture/paste code
+still has <code>finally</code> restoration and the third-party-change guard.
+If restoration exhausts its roughly three-second retry window, the generated
+replacement intentionally remains on the clipboard rather than reopening the
+overlay. Clipboard managers can introduce extra sequence changes; reproduce
+once with them disabled.</p>
+</section>
+<section id="startup-toggle-is-checked-but-nothing-launches-after-sign-in" class="level3">
+<h3>Startup toggle is checked but nothing launches after sign-in</h3>
+<p>Inspect the exact per-user Run entry:</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="va">$runKey</span> <span class="op">=</span> <span class="st">&#39;HKCU:\Software\Microsoft\Windows\CurrentVersion\Run&#39;</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">Get-ItemProperty</span> <span class="op">-</span>Path <span class="va">$runKey</span> <span class="op">-</span>Name ParaPhraser</span></code></pre></div>
+<p>The value should be a quoted absolute path to an existing
+<code>ParaPhraser.exe</code>. Startup registration records
+<code>Environment.ProcessPath</code> of the executable that toggled it.
+If the repository, Debug output, or published folder moved, the old path
+is stale. Run the executable you intend to keep, toggle startup off and
+on, then recheck the value.</p>
+</section>
+<section id="no-tray-balloon-appears" class="level3">
+<h3>No tray balloon appears</h3>
+<p>Windows notification settings or Focus Assist/Do Not Disturb can
+suppress <code>NotifyIcon</code> balloons. The readiness state is still
+available by testing Ollama directly. Break in
+<code>ShowNotification</code> to prove the app requested it.</p>
+</section>
+<section id="xaml-fails-during-initializecomponent" class="level3">
+<h3>XAML fails during <code>InitializeComponent</code></h3>
+<p>Read the inner exception. Typical causes are an invalid resource key,
+a binding to a missing named control, a malformed
+<code>ControlTemplate</code>, or an event handler renamed only in
+XAML/code-behind. Search the XAML for the named resource/handler and
+keep <code>x:Name</code> contracts synchronized.</p>
+</section>
+</section>
+<section id="18-run-at-windows-startup" class="level2">
+<h2>18. Run at Windows startup</h2>
+<p><code>StartupRegistrationService</code> uses the current user&#39;s
+registry only:</p>
+<pre class="text"><code>Key:   HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
+Value: ParaPhraser
+Data:  &quot;C:\absolute\path\to\ParaPhraser.exe&quot;</code></pre>
+<p>It does not create a Windows service, scheduled task, or all-users
+entry, and it needs no administrator permission. The application
+launches when that user signs in.</p>
+<p>Prefer toggling <strong>Run ParaPhraser at startup</strong> from the
+tray menu. To remove a stale entry manually:</p>
+<div class="sourceCode" id="cb25"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Remove-ItemProperty</span> `</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span>Path <span class="st">&#39;HKCU:\Software\Microsoft\Windows\CurrentVersion\Run&#39;</span> `</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span>Name ParaPhraser `</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">-</span>ErrorAction SilentlyContinue</span></code></pre></div>
+<p>Important: a <code>dotnet run</code> Debug executable lives under
+<code>bin\Debug\net10.0-windows</code>. Cleaning/moving the repository
+can invalidate that path. A stable published directory is a better
+startup target.</p>
+</section>
+<section id="19-publishing-and-moving-the-app" class="level2">
+<h2>19. Publishing and moving the app</h2>
+<p>Create a self-contained x64 single-file build:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="op">.</span>\scripts\publish-win-x64<span class="op">.</span><span class="fu">ps1</span></span></code></pre></div>
+<p>Output goes to:</p>
+<pre class="text"><code>C:\Learning\ParaPhraser\artifacts\win-x64</code></pre>
+<p>“Self-contained” means the .NET runtime is included. It does
+<strong>not</strong> include Ollama or <code>gemma3:4b</code>; those
+remain machine-level prerequisites.</p>
+<p>Recommended manual deployment sequence:</p>
+<ol type="1">
+<li>Exit the Debug tray instance.</li>
+<li>Publish.</li>
+<li>Move/copy the entire published output to a stable location if
+desired.</li>
+<li>Launch the published <code>ParaPhraser.exe</code>.</li>
+<li>Confirm hotkey, Generate, Copy, and Replace in Notepad.</li>
+<li>Toggle startup off and on from this published instance so the Run
+value points to it.</li>
+<li>Sign out/in once to verify startup.</li>
+</ol>
+<p>Re-publishing over a running published executable can fail because
+Windows locks loaded files. Exit it first.</p>
+</section>
+<section id="20-safely-changing-common-features" class="level2">
+<h2>20. Safely changing common features</h2>
+<section id="add-a-new-action" class="level3">
+<h3>Add a new action</h3>
+<ol type="1">
+<li>Add a member to <code>RewriteMode</code> if it is truly new.</li>
+<li>Add/update default instructions in <code>RewriteCoordinator</code>
+and <code>OllamaTextTransformer</code>.</li>
+<li>Add the ComboBox item in <code>OverlayWindow.xaml</code>.</li>
+<li>Update both action index mappings in
+<code>OverlayWindow.xaml.cs</code>.</li>
+<li>Decide whether it needs a global hotkey.</li>
+<li>Add a smoke assertion and test with Ollama.</li>
+</ol>
+<p>There is already a <code>Professional</code> mode in Core, but the
+unified screen normally represents professionalism as a Tone. Avoid
+creating two UI choices with unclear overlap unless the product behavior
+is intentionally different.</p>
+</section>
+<section id="add-a-new-tone" class="level3">
+<h3>Add a new tone</h3>
+<ol type="1">
+<li>Add it to <code>RewriteTone</code>.</li>
+<li>Add the UI item.</li>
+<li>Map its index in <code>OverlayWindow.GenerateAsync</code>.</li>
+<li>Add its prompt rule in <code>GetToneInstruction</code>.</li>
+<li>Test facts, names, URLs, and dates for preservation.</li>
+</ol>
+</section>
+<section id="change-visual-design-or-dropdown-appearance" class="level3">
+<h3>Change visual design or dropdown appearance</h3>
+<p>Start in <code>App.xaml</code>, not individual controls. The relevant
+shared resources are <code>ModernComboBoxStyle</code>,
+<code>ModernComboBoxItemStyle</code>, <code>OverlayButtonStyle</code>,
+<code>PrimaryButtonStyle</code>, brushes, and gradients.
+<code>OverlayWindow.xaml</code> should mainly describe layout. After
+edits, test normal, hover, keyboard focus, disabled state, selection,
+popup scrolling, 100%/150%/200% scaling, and a secondary monitor.</p>
+</section>
+<section id="add-true-surrounding-context" class="level3">
+<h3>Add true surrounding context</h3>
+<p>Do not silently scrape arbitrary windows. A robust design needs:</p>
+<ol type="1">
+<li>A bounded and visible context source, preferably Windows UI
+Automation around the focused control.</li>
+<li>Permission/privacy rules and sensitive-field exclusions.</li>
+<li>A size/token limit and truncation strategy.</li>
+<li>Population of <code>RewriteContext.SurroundingText</code>.</li>
+<li>A UI indication of exactly what will be sent.</li>
+<li>Compatibility tests for each target application.</li>
+</ol>
+<p>The prompt builder already supports a non-empty
+<code>SurroundingText</code>, so provider code needs little change.</p>
+</section>
+<section id="replace-ollama-with-another-local-provider" class="level3">
+<h3>Replace Ollama with another local provider</h3>
+<p>Implement <code>ITextTransformer</code>. Keep
+endpoint/prompt/deserialization/provider errors inside that
+implementation. Construct it in <code>App.OnStartup</code>. Preserve
+<code>LocalAiUnavailableException</code> semantics if you want existing
+overlay/tray warnings to work.</p>
+</section>
+</section>
+<section id="21-privacy-security-and-trust-boundaries" class="level2">
+<h2>21. Privacy, security, and trust boundaries</h2>
+<p>Current privacy properties:</p>
+<ul>
+<li>Requests go to loopback <code>127.0.0.1</code>, not a configured
+cloud URL.</li>
+<li>The application has no database or history store.</li>
+<li>It captures only after an explicit hotkey.</li>
+<li>It sends selected/edited text, process name, window title,
+instruction, mode, and tone. Output language is always English.</li>
+<li>It restores clipboard contents where safe.</li>
+<li>It runs <code>asInvoker</code>, without requested elevation.</li>
+</ul>
+<p>Limitations and responsibilities:</p>
+<ul>
+<li>Ollama/model files and behavior are separate software; inspect their
+versions and licenses.</li>
+<li>Window titles can contain private document or conversation
+names.</li>
+<li>Selected text may contain secrets. Local processing reduces exposure
+but does not make indiscriminate handling safe.</li>
+<li>A local process with access to port 11434 can call Ollama; the app
+implements no authentication because it binds to the normal local
+endpoint.</li>
+<li>Model output can be factually or stylistically wrong. The review
+screen is a safety boundary; do not auto-replace without review.</li>
+<li>Do not add selected-text logging to routine diagnostics.</li>
+</ul>
+</section>
+<section id="22-known-architectural-limitations" class="level2">
+<h2>22. Known architectural limitations</h2>
+<ul>
+<li>Windows only.</li>
+<li>Fixed global shortcuts.</li>
+<li>Clipboard/SendInput compatibility rather than native
+integrations.</li>
+<li>Plain-text replacement only.</li>
+<li>No persistent history by design at this stage.</li>
+<li>No settings window; model selection is an environment variable.</li>
+<li>Context is selection + app/window metadata, not surrounding
+content.</li>
+<li>No cancellation button for a generation already sent to Ollama.</li>
+<li>No structured logging or diagnostics panel.</li>
+<li>No automated UI/clipboard compatibility tests.</li>
+<li>Hinglish draft detection is a small heuristic and does not cover
+every transliteration spelling; the model prompt is the primary
+translator.</li>
+<li>The fixed <code>8192</code> context request may not be optimal for
+every model/hardware combination.</li>
+</ul>
+<p>These are boundaries, not unexplained bugs. When planning work,
+decide whether the change fixes a regression inside the current boundary
+or deliberately expands the product.</p>
+</section>
+<section id="23-recovery-checklist-use-this-tomorrow-morning" class="level2">
+<h2>23. Recovery checklist: use this tomorrow morning</h2>
+<p>If everything appears broken, work in this order:</p>
+<ol type="1">
+<li>Exit any ParaPhraser tray instance.</li>
+<li>Open x64 PowerShell in <code>C:\Learning\ParaPhraser</code>.</li>
+<li>Run <code>dotnet --info</code> and confirm a .NET 10 SDK from
+<code>C:\Program Files\dotnet</code>.</li>
+<li>Run <code>.\scripts\build.ps1</code>; do not proceed until it
+passes.</li>
+<li>Run <code>ollama list</code> and confirm
+<code>gemma3:4b</code>.</li>
+<li>Run <code>Test-NetConnection 127.0.0.1 -Port 11434</code>.</li>
+<li>Run the direct <code>/api/chat</code> request from section 14.</li>
+<li>Start ParaPhraser with
+<code>dotnet run --project .\src\ParaPhraser.Desktop\ParaPhraser.Desktop.csproj</code>.</li>
+<li>Confirm tray icon and readiness balloon.</li>
+<li>Test <code>Ctrl+Alt+G</code> on selected plain text in Notepad.</li>
+<li>Test Generate with English, Hindi, and Hinglish input; verify all
+three results are English.</li>
+<li>Test Copy before Replace.</li>
+<li>If a stage fails, attach the debugger at the corresponding
+breakpoint in section 16.</li>
+<li>Only after Notepad works, test Teams/browser/Outlook and treat
+differences as editor compatibility problems.</li>
+<li>After moving or republishing the executable, re-register startup
+from the final executable.</li>
+</ol>
+</section>
+<section id="24-definition-of-a-healthy-release" class="level2">
+<h2>24. Definition of a healthy release</h2>
+<p>A release is healthy when all of the following are true:</p>
+<ul>
+<li><code>scripts\build.ps1</code> completes with zero warnings and
+errors.</li>
+<li>The opt-in Ollama test passes on the supported model.</li>
+<li>Only one tray instance can run.</li>
+<li>Both shortcuts open the correct initial action.</li>
+<li>The original clipboard survives capture.</li>
+<li>Edited selected context is what the model receives.</li>
+<li>Every dropdown label maps to the intended enum.</li>
+<li>English stays English, while Devanagari Hindi, Hinglish, and other
+non-English input becomes English.</li>
+<li>Copy returns exact result text.</li>
+<li>Replace works in Notepad and fails safely with a useful message when
+focus cannot be restored.</li>
+<li>Ollama-down and model-missing paths show an overlay message and
+notification.</li>
+<li>Startup registration points to an existing stable executable and
+survives sign-out/sign-in.</li>
+<li>No selected text or history is written to disk.</li>
+</ul>
+<p>When investigating a bug, record the input application, exact
+selected text category (not secret content), action, tone, source
+language, model name, Ollama status, whether Copy worked, whether
+Notepad reproduced it, and the first method/exception where behavior
+diverged. That small record usually identifies the owning layer
+immediately.</p>
+</section>
+</section>
+    </main>
+
+    <div class="empty-state" id="empty-state">
+      <div>⌕</div><strong>No matching section</strong>
+      <p>Try a class name, error code, “Ollama”, “Replace”, or “startup”.</p>
+    </div>
+
+    <footer>ParaPhraser Maintenance &amp; Debugging Handbook · Offline and self-contained</footer>
+  </div>
+
+  <a class="back-to-top" id="back-to-top" href="#page-top" aria-label="Back to top">↑</a>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var savedTheme = localStorage.getItem('paraphraser-handbook-theme');
+      var lightPreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      root.dataset.theme = savedTheme || (lightPreferred ? 'light' : 'dark');
+
+      var themeButton = document.getElementById('theme-button');
+      function updateThemeButton() {
+        themeButton.textContent = root.dataset.theme === 'dark' ? '☀' : '☾';
+      }
+      updateThemeButton();
+      themeButton.addEventListener('click', function () {
+        root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('paraphraser-handbook-theme', root.dataset.theme);
+        updateThemeButton();
+      });
+
+      document.getElementById('print-button').addEventListener('click', function () { window.print(); });
+      document.getElementById('menu-button').addEventListener('click', function () { document.body.classList.toggle('sidebar-open'); });
+      document.querySelectorAll('#TOC a').forEach(function (link) {
+        link.addEventListener('click', function () { document.body.classList.remove('sidebar-open'); });
+      });
+
+      function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+        var field = document.createElement('textarea');
+        field.value = text;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        document.execCommand('copy');
+        field.remove();
+        return Promise.resolve();
+      }
+
+      document.querySelectorAll('main pre').forEach(function (pre) {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'code-shell';
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+        var button = document.createElement('button');
+        button.className = 'copy-code';
+        button.type = 'button';
+        button.textContent = 'Copy';
+        button.addEventListener('click', function () {
+          copyText(pre.innerText).then(function () {
+            button.textContent = 'Copied';
+            setTimeout(function () { button.textContent = 'Copy'; }, 1400);
+          });
+        });
+        wrapper.appendChild(button);
+      });
+
+      document.querySelectorAll('main table').forEach(function (table) {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'table-shell';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+      });
+
+      var sections = Array.prototype.slice.call(document.querySelectorAll('main section.level2'));
+      document.querySelectorAll('main section.level2 > h2').forEach(function (heading, index) {
+        var match = heading.textContent.trim().match(/^(\d+)\./);
+        heading.dataset.sectionNumber = match ? match[1] : String(index + 1);
+        if (match) heading.textContent = heading.textContent.replace(/^\d+\.\s*/, '');
+      });
+
+      var search = document.getElementById('handbook-search');
+      var searchStatus = document.getElementById('search-status');
+      var emptyState = document.getElementById('empty-state');
+      search.addEventListener('input', function () {
+        var query = search.value.trim().toLocaleLowerCase();
+        var visible = 0;
+        sections.forEach(function (section) {
+          var match = !query || section.textContent.toLocaleLowerCase().indexOf(query) !== -1;
+          section.classList.toggle('search-hidden', !match);
+          if (match) visible++;
+        });
+        searchStatus.textContent = query ? visible + ' matching section' + (visible === 1 ? '' : 's') : '';
+        emptyState.classList.toggle('visible', Boolean(query) && visible === 0);
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === '/' && !/input|textarea/i.test(document.activeElement.tagName)) {
+          event.preventDefault();
+          search.focus();
+        }
+        if (event.key === 'Escape' && document.activeElement === search) {
+          search.value = '';
+          search.dispatchEvent(new Event('input'));
+          search.blur();
+        }
+      });
+
+      var tocLinks = Array.prototype.slice.call(document.querySelectorAll('#TOC a'));
+      var linksById = {};
+      tocLinks.forEach(function (link) { linksById[decodeURIComponent(link.hash.slice(1))] = link; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            tocLinks.forEach(function (link) { link.classList.remove('active'); });
+            if (linksById[entry.target.id]) linksById[entry.target.id].classList.add('active');
+          });
+        }, { rootMargin: '-18% 0px -72% 0px' });
+        sections.forEach(function (section) { observer.observe(section); });
+      }
+
+      var progress = document.getElementById('reading-progress');
+      var backToTop = document.getElementById('back-to-top');
+      function updateScrollState() {
+        var available = document.documentElement.scrollHeight - window.innerHeight;
+        progress.style.width = (available > 0 ? window.scrollY / available * 100 : 0) + '%';
+        backToTop.classList.toggle('visible', window.scrollY > 720);
+      }
+      window.addEventListener('scroll', updateScrollState, { passive: true });
+      updateScrollState();
+    }());
+  </script>
+</body>
+</html>
