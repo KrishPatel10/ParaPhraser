@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Downloads makeappx without installing the Windows SDK. Builds nothing. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageDownload Include="Microsoft.Windows.SDK.BuildTools" Version="[10.0.28000.2957]" />
+  </ItemGroup>
+</Project>

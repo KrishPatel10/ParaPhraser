@@ -9,9 +9,16 @@
     <AssemblyName>ParaPhraser</AssemblyName>
     <RootNamespace>ParaPhraser.Desktop</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\ParaPhraser.ico</ApplicationIcon>
+    <StartupObject>ParaPhraser.Desktop.App</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- A Page, so App.Main is ours and Velopack can run before WPF starts. -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+    <Resource Include="Assets\ParaPhraser.ico" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
     <ProjectReference Include="..\ParaPhraser.Core\ParaPhraser.Core.csproj" />
     <InternalsVisibleTo Include="ParaPhraser.Core.SmokeTests" />
   </ItemGroup>

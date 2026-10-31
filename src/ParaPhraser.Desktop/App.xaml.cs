@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Forms;
 using ParaPhraser.Core;
 using ParaPhraser.Desktop.Services;
+using Velopack;
 using Application = System.Windows.Application;
 
 namespace ParaPhraser.Desktop;
@@ -19,10 +20,13 @@ public partial class App : Application
     private const int InstantHotkeyId = 4;
     private const int OllamaStartupAttempts = 5;
     private const int FallbackListSeconds = 8;
+    private const string ShowSettingsSignalName = "Local\\ParaPhraser.ShowSettings";
 
     private readonly StartupRegistrationService _startupRegistration = new();
     private readonly HashSet<string> _triedFallbackModels = [];
     private Mutex? _singleInstanceMutex;
+    private EventWaitHandle? _showSettingsSignal;
+    private RegisteredWaitHandle? _showSettingsWait;
     private NotifyIcon? _trayIcon;
     private ToolStripMenuItem? _startupMenuItem;
     private ToolStripMenuItem? _providerMenuItem;
@@ -37,6 +41,45 @@ public partial class App : Application
     private ChatTextTransformer? _transformer;
     private AppSettings? _settings;
     private SettingsWindow? _settingsWindow;
+    private readonly AppUpdateService _updates = new();
+    private ToolStripMenuItem? _updateMenuItem;
+    private bool _updateReady;
+
+    [STAThread]
+    private static void Main()
+    {
+        // Must come first: the installer and uninstaller run this exe and exit here.
+        VelopackApp.Build()
+            .OnBeforeUninstallFastCallback(_ => PrepareForUninstall())
+            .Run();
+
+        var app = new App();
+        app.InitializeComponent();
+        app.Run();
+    }
+
+    // Uninstalling leaves a running tray app behind, which also keeps its folder locked,
+    // and the startup entry would point at a file that no longer exists.
+    private static void PrepareForUninstall()
+    {
+        new StartupRegistrationService().SetEnabled(false);
+
+        foreach (var process in Process.GetProcessesByName("ParaPhraser"))
+        {
+            try
+            {
+                if (process.Id != Environment.ProcessId && process.MainModule?.FileName == Environment.ProcessPath)
+                {
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+            }
+            catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+            {
+                AppLog.Error("Could not close ParaPhraser for uninstall", exception);
+            }
+        }
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -52,9 +95,22 @@ public partial class App : Application
             // This instance never owned the mutex, so OnExit must not release it.
             _singleInstanceMutex.Dispose();
             _singleInstanceMutex = null;
+
+            // The app has no main window, so without this, clicking it in the
+            // Start menu while it is running appears to do nothing.
+            using var signal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSettingsSignalName);
+            signal.Set();
             Shutdown();
             return;
         }
+
+        _showSettingsSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowSettingsSignalName);
+        _showSettingsWait = ThreadPool.RegisterWaitForSingleObject(
+            _showSettingsSignal,
+            (_, _) => Dispatcher.InvokeAsync(OpenSettings),
+            null,
+            Timeout.Infinite,
+            executeOnlyOnce: false);
 
         _overlay = new OverlayWindow();
         var selectionService = new ClipboardSelectionService();
@@ -79,7 +135,14 @@ public partial class App : Application
         ConfigureTrayIcon();
         RegisterShortcuts();
         ShowCurrentProvider();
-        _ = NotifyAiStatusAsync(openSettingsIfNotReady: isFirstRun);
+        _ = NotifyAiStatusAsync(openSettingsIfNotReady: false);
+        _ = CheckForUpdatesAsync(userAsked: false);
+
+        // A first launch should show something, or it looks like nothing happened.
+        if (isFirstRun)
+        {
+            OpenSettings();
+        }
 
         DispatcherUnhandledException += (_, args) =>
         {
@@ -273,10 +336,18 @@ public partial class App : Application
         menu.Items.Add(_providerMenuItem);
         menu.Items.Add("Settings…", null, (_, _) => OpenSettings());
         menu.Items.Add("Open logs folder", null, (_, _) => OpenLogsFolder());
-        menu.Items.Add(new ToolStripSeparator());
-        _startupMenuItem = new ToolStripMenuItem("Run ParaPhraser at startup")
+        if (_updates.IsAvailable)
         {
-            Checked = _startupRegistration.IsEnabled
+            _updateMenuItem = new ToolStripMenuItem("Check for updates");
+            _updateMenuItem.Click += (_, _) => OnUpdateMenuItemClicked();
+            menu.Items.Add(_updateMenuItem);
+        }
+
+        menu.Items.Add(new ToolStripSeparator());
+        _startupMenuItem = new ToolStripMenuItem(
+            PackagedApp.IsPackaged ? "Run at startup…" : "Run ParaPhraser at startup")
+        {
+            Checked = !PackagedApp.IsPackaged && _startupRegistration.IsEnabled
         };
         _startupMenuItem.Click += ToggleStartupRegistration;
         menu.Items.Add(_startupMenuItem);
@@ -286,18 +357,70 @@ public partial class App : Application
         _trayIcon = new NotifyIcon
         {
             Text = "ParaPhraser",
-            Icon = SystemIcons.Application,
+            Icon = new Icon(
+                GetResourceStream(new Uri("Assets/ParaPhraser.ico", UriKind.Relative)).Stream,
+                SystemInformation.SmallIconSize),
             ContextMenuStrip = menu,
             Visible = true
         };
         _trayIcon.BalloonTipClicked += (_, _) => OpenSettings();
     }
 
+    private void OnUpdateMenuItemClicked()
+    {
+        if (_updateReady)
+        {
+            _updates.RestartIntoUpdate();
+            return;
+        }
+
+        _ = CheckForUpdatesAsync(userAsked: true);
+    }
+
+    // Only the writer's click restarts the app, so an update can't interrupt their work.
+    private async Task CheckForUpdatesAsync(bool userAsked)
+    {
+        if (!_updates.IsAvailable || _updateReady)
+        {
+            return;
+        }
+
+        try
+        {
+            var version = await _updates.DownloadLatestAsync();
+            if (version is null)
+            {
+                if (userAsked)
+                {
+                    ShowNotification("ParaPhraser is up to date", "You have the latest version.", ToolTipIcon.Info);
+                }
+
+                return;
+            }
+
+            AppLog.Info($"Update {version} downloaded");
+            _updateReady = true;
+            _updateMenuItem!.Text = $"Restart to update to {version}";
+            ShowNotification(
+                "An update is ready",
+                $"To install version {version}, right-click the tray icon and choose Restart to update.",
+                ToolTipIcon.Info);
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error("Update check failed", exception);
+            if (userAsked)
+            {
+                ShowNotification("Could not check for updates", exception.Message, ToolTipIcon.Warning);
+            }
+        }
+    }
+
     private static void OpenLogsFolder()
     {
         var folder = Path.GetDirectoryName(AppLog.FilePath)!;
         Directory.CreateDirectory(folder);
-        Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+        Process.Start(new ProcessStartInfo(PackagedApp.GetVisibleLocalFolder(folder)) { UseShellExecute = true });
     }
 
     private void OpenSettings()
@@ -421,6 +544,14 @@ public partial class App : Application
             return;
         }
 
+        // Windows ignores a packaged app's Run key, so the user controls its
+        // startup task in Settings instead.
+        if (PackagedApp.IsPackaged)
+        {
+            Process.Start(new ProcessStartInfo("ms-settings:startupapps") { UseShellExecute = true });
+            return;
+        }
+
         try
         {
             var enable = !_startupRegistration.IsEnabled;
@@ -472,6 +603,8 @@ public partial class App : Application
 
         _overlay?.CloseForShutdown();
         _toast?.Close();
+        _showSettingsWait?.Unregister(null);
+        _showSettingsSignal?.Dispose();
         _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);

@@ -1,3 +1,5 @@
+<img src="src/ParaPhraser.Desktop/Assets/logo.svg" alt="" width="72">
+
 # ParaPhraser
 
 ParaPhraser is a Windows-resident writing assistant. It captures selected text
@@ -52,6 +54,9 @@ or right-click the tray icon and choose **Settings**, to pick how it writes:
   Keys are encrypted for your Windows account with DPAPI and stored in
   `%APPDATA%\ParaPhraser\settings.json`.
 
+When installed with Setup.exe, ParaPhraser asks GitHub for a new version each time it
+starts, even in offline mode. That request contains none of your text.
+
 To investigate a failure, right-click the tray icon and choose
 **Open logs folder**. The log at `%LOCALAPPDATA%\ParaPhraser\logs` records each
 request's mode, provider, model, application, character counts, timings, retries,
@@ -104,8 +109,10 @@ to the compatibility matrix after the basic flow is confirmed.
 .\scripts\publish-win-x64.ps1
 ```
 
-The executable is written to `artifacts\win-x64`. The final installer should
-be created only after shortcut, startup, signing, and update behavior are stable.
+The executable is written to `artifacts\win-x64`.
+
+To build the installer, publish a release, or build an MSIX package, see
+[docs/packaging.md](docs/packaging.md).
 
 ## Known MVP limitations
 
@@ -117,7 +124,6 @@ be created only after shortcut, startup, signing, and update behavior are stable
   in Settings. Flash-lite models are often less busy.
 - Context is currently limited to the selection, application name, and window
   title. Surrounding text through UI Automation is a later compatibility slice.
-- Shortcuts are currently fixed.
 - Rich replacement uses one font for the whole result. Tables and images are
   not kept, nested lists are flattened, and apps that only copy RTF stay plain
   text.
