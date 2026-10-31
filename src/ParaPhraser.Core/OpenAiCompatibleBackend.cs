@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -15,8 +16,15 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
     private static readonly string[] NonChatModelWords =
     [
         "embedding", "whisper", "tts", "dall-e", "moderation", "transcribe",
-        "realtime", "audio", "image", "imagen", "veo", "sora", "aqa"
+        "realtime", "audio", "image", "imagen", "veo", "sora", "aqa",
+        "live", "deep-research", "computer-use", "antigravity", "customtools"
     ];
+
+    private const string UnknownError = "unknown error";
+
+    private const int MaxLoggedErrorLength = 300;
+
+    private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)];
 
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromMinutes(2) };
 
@@ -24,17 +32,30 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
     private readonly string _apiKey;
     private readonly string _model;
     private readonly HttpClient _client;
+    private readonly TimeSpan _firstResponseTimeout;
 
+    /// <param name="provider">The provider to call.</param>
+    /// <param name="apiKey">The user's key.</param>
+    /// <param name="model">The model to use.</param>
+    /// <param name="client">Replaces the shared client in tests.</param>
+    /// <param name="firstResponseTimeout">
+    /// How long to wait for the provider to start answering. An overloaded Gemini
+    /// model holds the request open with no reply at all, so waiting longer only
+    /// leaves the user looking at an empty box. A streaming reply starts almost
+    /// at once, so this does not limit how long a result can take to write.
+    /// </param>
     public OpenAiCompatibleBackend(
         OnlineProvider provider,
         string apiKey,
         string model,
-        HttpClient? client = null)
+        HttpClient? client = null,
+        TimeSpan? firstResponseTimeout = null)
     {
         _provider = provider;
         _apiKey = apiKey;
         _model = model;
         _client = client ?? SharedClient;
+        _firstResponseTimeout = firstResponseTimeout ?? TimeSpan.FromSeconds(30);
     }
 
     public string ProviderName => _provider.Name;
@@ -66,11 +87,15 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
             .ToArray() ?? [];
     }
 
-    public async Task<string> CompleteAsync(ChatPrompt prompt, CancellationToken cancellationToken = default)
+    public async Task<string> CompleteAsync(
+        ChatPrompt prompt,
+        Action<string>? onText = null,
+        CancellationToken cancellationToken = default)
     {
         var body = new
         {
             model = _model,
+            stream = true,
             messages = new[]
             {
                 new { role = "system", content = prompt.System },
@@ -78,20 +103,88 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
             }
         };
 
+        // A fixed-length body, because JsonContent sends chunked and some gateways reject that.
+        var json = JsonSerializer.Serialize(body);
         using var response = await SendAsync(
             () =>
             {
                 var request = CreateRequest(HttpMethod.Post, "chat/completions");
-                request.Content = JsonContent.Create(body);
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
                 return request;
             },
             cancellationToken);
-        var completion = await response.Content.ReadFromJsonAsync<ChatResponse>(cancellationToken: cancellationToken);
-        var content = completion?.Choices?.FirstOrDefault()?.Message?.Content?.Trim();
 
-        return string.IsNullOrWhiteSpace(content)
-            ? throw new InvalidOperationException($"{_provider.Name} returned an empty response. Please try again.")
-            : content;
+        try
+        {
+            var content = (await ReadStreamAsync(response, onText, cancellationToken)).Trim();
+            return string.IsNullOrWhiteSpace(content)
+                ? throw new InvalidOperationException($"{_provider.Name} returned an empty response. Please try again.")
+                : content;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException
+            && !cancellationToken.IsCancellationRequested)
+        {
+            throw new AiUnavailableException(
+                $"The connection to {_provider.Name} dropped. Please try again.",
+                exception);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidOperationException(
+                $"{_provider.Name} sent a reply that could not be read. Please try again.",
+                exception);
+        }
+    }
+
+    /// <summary>
+    /// Reads server-sent events. Other lines, such as OpenRouter's keep-alive
+    /// comments, are skipped.
+    /// </summary>
+    private async Task<string> ReadStreamAsync(
+        HttpResponseMessage response,
+        Action<string>? onText,
+        CancellationToken cancellationToken)
+    {
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var text = new StringBuilder();
+
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var data = line["data:".Length..].Trim();
+            if (data == "[DONE]")
+            {
+                break;
+            }
+
+            var chunk = JsonSerializer.Deserialize<StreamChunk>(data);
+            if (chunk?.Error?.Message is { } error)
+            {
+                AppLog.Warn($"{Label}: error during streaming: {Shorten(HideApiKey(error))}");
+                throw new InvalidOperationException(
+                    $"{_provider.Name} could not finish this request: {HideApiKey(error)}");
+            }
+
+            var choice = chunk?.Choices?.FirstOrDefault();
+            if (!string.IsNullOrEmpty(choice?.Delta?.Content))
+            {
+                text.Append(choice.Delta.Content);
+                onText?.Invoke(text.ToString());
+            }
+
+            if (choice?.FinishReason == "length")
+            {
+                AppLog.Warn($"{Label}: result cut off by the model's length limit");
+                throw new InvalidOperationException("The result was too long and got cut off. Try a shorter selection.");
+            }
+        }
+
+        return text.ToString();
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
@@ -108,18 +201,12 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
         HttpResponseMessage response;
         try
         {
-            response = await SendOnceWithRetryAsync(createRequest, cancellationToken);
+            response = await SendWithRetriesAsync(createRequest, cancellationToken);
         }
         catch (HttpRequestException exception)
         {
             throw new AiUnavailableException(
                 $"Could not reach {_provider.Name}. Check your internet connection.",
-                exception);
-        }
-        catch (TaskCanceledException exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new AiUnavailableException(
-                $"{_provider.Name} took too long to respond. Please try again.",
                 exception);
         }
 
@@ -134,21 +221,51 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
         }
     }
 
-    // The first connection to a provider occasionally drops, and the Claude SDK
-    // retries the same way. A request cannot be sent twice, so it is rebuilt.
-    private async Task<HttpResponseMessage> SendOnceWithRetryAsync(
+    // Dropped connections and brief server errors are routine for busy models,
+    // and the Claude SDK retries them too. A request cannot be sent twice, so
+    // each attempt rebuilds it. Rate limits are not retried, because they can
+    // mean the account is out of credit.
+    private async Task<HttpResponseMessage> SendWithRetriesAsync(
         Func<HttpRequestMessage> createRequest,
         CancellationToken cancellationToken)
     {
-        try
+        for (var attempt = 0; ; attempt++)
         {
-            using var request = createRequest();
-            return await _client.SendAsync(request, cancellationToken);
-        }
-        catch (HttpRequestException)
-        {
-            using var retry = createRequest();
-            return await _client.SendAsync(retry, cancellationToken);
+            var canRetry = attempt < RetryDelays.Length;
+            using var firstResponse = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            firstResponse.CancelAfter(_firstResponseTimeout);
+
+            try
+            {
+                using var request = createRequest();
+                var response = await _client.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    firstResponse.Token);
+
+                if (!canRetry || (int)response.StatusCode < 500)
+                {
+                    return response;
+                }
+
+                AppLog.Warn($"{Label}: server error {(int)response.StatusCode} on attempt {attempt + 1}, retrying");
+                response.Dispose();
+            }
+            catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Not retried: a model this busy stays busy, and a retry would
+                // only double the wait.
+                AppLog.Warn($"{Label}: no response within {_firstResponseTimeout.TotalSeconds:0} s");
+                throw new AiUnavailableException(
+                    $"{_provider.Name} did not respond, so {_model} may be overloaded. Try again shortly, or pick another model in Settings.",
+                    exception);
+            }
+            catch (HttpRequestException exception) when (canRetry)
+            {
+                AppLog.Warn($"{Label}: connection failed on attempt {attempt + 1}, retrying: {exception.Message}");
+            }
+
+            await Task.Delay(RetryDelays[attempt], cancellationToken);
         }
     }
 
@@ -157,6 +274,13 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
     private async Task<Exception> CreateErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var detail = await ReadErrorDetailAsync(response, cancellationToken);
+        var isKeyError = response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+        AppLog.Warn($"{Label}: HTTP {(int)response.StatusCode}{(isKeyError ? string.Empty : $": {Shorten(HideApiKey(detail))}")}");
+
+        var serverError = detail == UnknownError
+            ? $"{_provider.Name} is having problems ({(int)response.StatusCode}). Try again shortly, or pick another model in Settings."
+            : $"{_provider.Name} is having problems ({(int)response.StatusCode}): {HideApiKey(detail)} You can also pick another model in Settings.";
+
         return response.StatusCode switch
         {
             HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden =>
@@ -165,13 +289,19 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
                 new AiUnavailableException($"{_provider.Name} could not find model {_model}. Pick another in Settings."),
             HttpStatusCode.TooManyRequests =>
                 new InvalidOperationException($"{_provider.Name} says you hit a rate limit or ran out of credit. Check your account."),
-            >= HttpStatusCode.InternalServerError =>
-                new InvalidOperationException($"{_provider.Name} is having problems. Please try again shortly."),
+            >= HttpStatusCode.InternalServerError => new InvalidOperationException(serverError),
             _ when detail.Contains("api key", StringComparison.OrdinalIgnoreCase) =>
                 new AiUnavailableException($"{_provider.Name} rejected your API key. Check it in Settings."),
-            _ => new InvalidOperationException($"{_provider.Name} could not process this request: {detail}")
+            _ => new InvalidOperationException($"{_provider.Name} could not process this request: {HideApiKey(detail)}")
         };
     }
+
+    private string HideApiKey(string text) =>
+        _apiKey.Length == 0 ? text : text.Replace(_apiKey, "***", StringComparison.Ordinal);
+
+    private static string Shorten(string text) => text.Length <= MaxLoggedErrorLength
+        ? text
+        : text[..MaxLoggedErrorLength];
 
     private static async Task<string> ReadErrorDetailAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -188,7 +318,7 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
                 && error.ValueKind == JsonValueKind.Object
                 && error.TryGetProperty("message", out var message))
             {
-                return message.GetString() ?? "unknown error";
+                return message.GetString() ?? UnknownError;
             }
         }
         catch (JsonException)
@@ -196,7 +326,7 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
             // Some gateways answer with an HTML error page.
         }
 
-        return "unknown error";
+        return UnknownError;
     }
 
     private sealed record ModelListResponse(
@@ -205,12 +335,17 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
     private sealed record ModelEntry(
         [property: JsonPropertyName("id")] string? Id);
 
-    private sealed record ChatResponse(
-        [property: JsonPropertyName("choices")] IReadOnlyList<ChatChoice>? Choices);
+    private sealed record StreamChunk(
+        [property: JsonPropertyName("choices")] IReadOnlyList<StreamChoice>? Choices,
+        [property: JsonPropertyName("error")] StreamError? Error);
 
-    private sealed record ChatChoice(
-        [property: JsonPropertyName("message")] ChatMessage? Message);
+    private sealed record StreamChoice(
+        [property: JsonPropertyName("delta")] StreamDelta? Delta,
+        [property: JsonPropertyName("finish_reason")] string? FinishReason);
 
-    private sealed record ChatMessage(
+    private sealed record StreamDelta(
         [property: JsonPropertyName("content")] string? Content);
+
+    private sealed record StreamError(
+        [property: JsonPropertyName("message")] string? Message);
 }

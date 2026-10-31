@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Threading;
@@ -52,6 +53,7 @@ public partial class App : Application
         var isFirstRun = !File.Exists(AppSettings.DefaultPath);
         _settings = AppSettings.Load();
         _transformer = new ChatTextTransformer(_settings.CreateBackend());
+        AppLog.Info($"ParaPhraser started, version {GetType().Assembly.GetName().Version}, using {_transformer.Label}");
         _coordinator = new RewriteCoordinator(selectionService, _transformer, _overlay);
         _coordinator.AiUnavailable += OnAiUnavailable;
 
@@ -67,9 +69,14 @@ public partial class App : Application
 
         DispatcherUnhandledException += (_, args) =>
         {
+            AppLog.Error("Unhandled error on the UI thread", args.Exception);
             _overlay.ShowError(args.Exception.Message);
             args.Handled = true;
         };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            AppLog.Error("Unhandled error, the app is closing", args.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+            AppLog.Error("Unobserved background task error", args.Exception);
     }
 
     // Format is also in the action list, so losing this shortcut to another app
@@ -82,6 +89,7 @@ public partial class App : Application
         }
         catch (Win32Exception exception)
         {
+            AppLog.Warn($"Ctrl+Alt+F could not be registered: {exception.Message}");
             ShowNotification(
                 "Ctrl+Alt+F isn't available",
                 $"{exception.Message} Use Format from the Action list instead.",
@@ -120,6 +128,7 @@ public partial class App : Application
         _providerMenuItem = new ToolStripMenuItem { Enabled = false };
         menu.Items.Add(_providerMenuItem);
         menu.Items.Add("Settings…", null, (_, _) => OpenSettings());
+        menu.Items.Add("Open logs folder", null, (_, _) => OpenLogsFolder());
         menu.Items.Add(new ToolStripSeparator());
         _startupMenuItem = new ToolStripMenuItem("Run ParaPhraser at startup")
         {
@@ -138,6 +147,13 @@ public partial class App : Application
             Visible = true
         };
         _trayIcon.BalloonTipClicked += (_, _) => OpenSettings();
+    }
+
+    private static void OpenLogsFolder()
+    {
+        var folder = Path.GetDirectoryName(AppLog.FilePath)!;
+        Directory.CreateDirectory(folder);
+        Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
     }
 
     private void OpenSettings()
@@ -165,6 +181,7 @@ public partial class App : Application
         }
 
         _transformer = new ChatTextTransformer(_settings.CreateBackend());
+        AppLog.Info($"Settings saved, now using {_transformer.Label}");
         _coordinator?.UseTransformer(_transformer);
         ShowCurrentProvider();
         _ = NotifyAiStatusAsync(openSettingsIfNotReady: false);
@@ -211,6 +228,15 @@ public partial class App : Application
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }
+        }
+
+        if (status.IsReady)
+        {
+            AppLog.Info($"Status check passed: {status.Message}");
+        }
+        else
+        {
+            AppLog.Warn($"Status check failed: {status.Message}");
         }
 
         ShowNotification(

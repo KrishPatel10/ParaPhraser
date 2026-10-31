@@ -30,8 +30,11 @@ public sealed class ChatTextTransformer : ITextTransformer
 
     public IChatBackend Backend => _backend;
 
+    public string Label => _backend.Label;
+
     public async Task<RewriteResult> TransformAsync(
         RewriteRequest request,
+        Action<string>? onText = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Text);
@@ -39,11 +42,13 @@ public sealed class ChatTextTransformer : ITextTransformer
         var stopwatch = Stopwatch.StartNew();
         var transformed = await _backend.CompleteAsync(
             new ChatPrompt(WritingInstruction, BuildPrompt(request), Temperature: 0.2),
+            onText,
             cancellationToken);
 
         transformed = await CorrectLanguageIfNeededAsync(
             request,
             transformed,
+            onText,
             cancellationToken);
 
         stopwatch.Stop();
@@ -64,6 +69,7 @@ public sealed class ChatTextTransformer : ITextTransformer
                 $"INSTRUCTION\n{instruction}\n\nTEXT\n{text}",
                 Temperature: 0.1,
                 ExpectJson: true),
+            onText: null,
             cancellationToken);
 
         stopwatch.Stop();
@@ -177,6 +183,7 @@ public sealed class ChatTextTransformer : ITextTransformer
     private async Task<string> CorrectLanguageIfNeededAsync(
         RewriteRequest request,
         string transformed,
+        Action<string>? onText,
         CancellationToken cancellationToken)
     {
         if (IsEnglishOutput(GetVisibleText(request, transformed)))
@@ -206,6 +213,7 @@ public sealed class ChatTextTransformer : ITextTransformer
 
         var corrected = await _backend.CompleteAsync(
             new ChatPrompt(systemInstruction, correctionPrompt, Temperature: 0.1),
+            onText,
             cancellationToken);
 
         if (!IsEnglishOutput(GetVisibleText(request, corrected)))

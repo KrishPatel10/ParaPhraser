@@ -27,6 +27,13 @@ model names are built in apart from the Ollama default. If a provider's model
 list is public, set `KeyCheckPath` to an address that needs a key, or any key
 will pass the check on Save.
 
+Every backend streams. `CompleteAsync` reports all the text so far through
+`onText`, and `RewriteCoordinator` passes that to the overlay at most every 80 ms,
+because rebuilding the document for each token stutters. Partial text goes through
+`RichDocument.FromPartialModelOutput`, which hides half-written tags and code
+fences. Format mode does not stream, because its reply is a list of phrases.
+Stopping cancels the request, so an online provider stops generating and billing.
+
 Temperature is sent only to Ollama, because current online models reject it. When
 `IChatBackend.IsLocal` is false, application names and window titles are left out
 of the prompt, and the overlay names the provider instead of saying processing is
@@ -88,4 +95,6 @@ without changing selection capture or UI code.
 - Capture text only after an explicit shortcut.
 - Reject password and protected controls when UI Automation is introduced.
 - Never ship a shared AI provider key inside the desktop binary.
-- Avoid logging selected text or model responses by default.
+- `AppLog` must never receive selected text, model responses, instructions,
+  window titles, or API keys. Log counts, names, and error codes. Do not log the
+  error text from a rejected key, because some providers echo part of the key.

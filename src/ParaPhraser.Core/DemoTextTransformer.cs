@@ -9,8 +9,11 @@ namespace ParaPhraser.Core;
 /// </summary>
 public sealed partial class DemoTextTransformer : ITextTransformer
 {
+    public string Label => "Built-in demo";
+
     public Task<RewriteResult> TransformAsync(
         RewriteRequest request,
+        Action<string>? onText = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Text);

@@ -1,3 +1,4 @@
+using System.Text;
 using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
@@ -14,6 +15,7 @@ public sealed class AnthropicBackend : IChatBackend
 
     private readonly OnlineProvider _provider;
     private readonly string _model;
+    private readonly string _apiKey;
     private readonly AnthropicClient _client;
 
     public AnthropicBackend(
@@ -24,6 +26,7 @@ public sealed class AnthropicBackend : IChatBackend
     {
         _provider = provider;
         _model = model;
+        _apiKey = apiKey;
 
         // BaseUrl is always set, or the SDK would follow ANTHROPIC_BASE_URL and
         // could send the user's key to whatever address that variable names.
@@ -54,49 +57,85 @@ public sealed class AnthropicBackend : IChatBackend
         }
         catch (Exception exception) when (TranslateError(exception) is { } error)
         {
+            LogError(exception);
             throw error;
         }
     }
 
-    public async Task<string> CompleteAsync(ChatPrompt prompt, CancellationToken cancellationToken = default)
+    public async Task<string> CompleteAsync(
+        ChatPrompt prompt,
+        Action<string>? onText = null,
+        CancellationToken cancellationToken = default)
     {
+        var parameters = new MessageCreateParams
+        {
+            Model = _model,
+            MaxTokens = MaxOutputTokens,
+            System = prompt.System,
+            Messages = [new MessageParam(new UserMessageParam { Content = prompt.User })]
+        };
+
         try
         {
-            var message = await _client.Messages.Create(
-                new MessageCreateParams
+            var text = new StringBuilder();
+            await foreach (var streamEvent in _client.Messages.CreateStreaming(parameters, cancellationToken))
+            {
+                // Only text deltas count. Thinking arrives as a different delta.
+                if (streamEvent.TryPickContentBlockDelta(out var contentDelta)
+                    && contentDelta.Delta.TryPickText(out var textDelta))
                 {
-                    Model = _model,
-                    MaxTokens = MaxOutputTokens,
-                    System = prompt.System,
-                    Messages = [new MessageParam(new UserMessageParam { Content = prompt.User })]
-                },
-                cancellationToken);
-
-            if (message.StopReason == "refusal")
-            {
-                throw new InvalidOperationException("Claude declined to work on this text.");
+                    text.Append(textDelta.Text);
+                    onText?.Invoke(text.ToString());
+                }
+                else if (streamEvent.TryPickDelta(out var messageDelta))
+                {
+                    ThrowIfUnfinished(messageDelta.Delta.StopReason == "refusal", messageDelta.Delta.StopReason == "max_tokens");
+                }
             }
 
-            if (message.StopReason == "max_tokens")
-            {
-                throw new InvalidOperationException("The result was too long and got cut off. Try a shorter selection.");
-            }
-
-            // Thinking blocks come before the text, so only the text blocks count.
-            var text = string.Concat(message.Content
-                .Select(block => block.Value)
-                .OfType<TextBlock>()
-                .Select(block => block.Text))
-                .Trim();
-
-            return string.IsNullOrWhiteSpace(text)
+            var content = text.ToString().Trim();
+            return string.IsNullOrWhiteSpace(content)
                 ? throw new InvalidOperationException("Claude returned an empty response. Please try again.")
-                : text;
+                : content;
+        }
+        catch (Exception exception) when (cancellationToken.IsCancellationRequested
+            && exception is not OperationCanceledException)
+        {
+            // Stopping mid-stream can surface as a connection error from the SDK.
+            throw new OperationCanceledException(cancellationToken);
         }
         catch (Exception exception) when (TranslateError(exception) is { } error)
         {
+            LogError(exception);
             throw error;
         }
+    }
+
+    private void ThrowIfUnfinished(bool wasRefused, bool wasCutOff)
+    {
+        if (wasRefused)
+        {
+            AppLog.Warn($"{Label}: request refused by the model");
+            throw new InvalidOperationException("Claude declined to work on this text.");
+        }
+
+        if (wasCutOff)
+        {
+            AppLog.Warn($"{Label}: result cut off by the model's length limit");
+            throw new InvalidOperationException("The result was too long and got cut off. Try a shorter selection.");
+        }
+    }
+
+    // A rejected key's error text is never logged, in case it echoes the key.
+    private void LogError(Exception exception)
+    {
+        var message = _apiKey.Length == 0
+            ? exception.Message
+            : exception.Message.Replace(_apiKey, "***", StringComparison.Ordinal);
+        var detail = exception is AnthropicUnauthorizedException or AnthropicForbiddenException
+            ? string.Empty
+            : $": {message}";
+        AppLog.Warn($"{Label}: {exception.GetType().Name}{detail}");
     }
 
     private Exception? TranslateError(Exception exception) => exception switch
@@ -111,6 +150,8 @@ public sealed class AnthropicBackend : IChatBackend
             new InvalidOperationException($"{_provider.Name} is having problems. Please try again shortly."),
         AnthropicIOException =>
             new AiUnavailableException($"Could not reach {_provider.Name}. Check your internet connection."),
+        IOException or HttpRequestException =>
+            new AiUnavailableException($"The connection to {_provider.Name} dropped. Please try again."),
         AnthropicApiException =>
             new InvalidOperationException($"{_provider.Name} could not process this request with {_model}. Try another model in Settings."),
         _ => null

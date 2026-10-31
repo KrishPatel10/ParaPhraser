@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ParaPhraser.Core;
 
 namespace ParaPhraser.Desktop.Services;
@@ -23,6 +24,8 @@ public sealed class RewriteCoordinator
 
     public void UseTransformer(ITextTransformer transformer) => _transformer = transformer;
 
+    private const int PartialTextIntervalMilliseconds = 80;
+
     public async Task HandleAsync(
         RewriteMode mode,
         CancellationToken cancellationToken = default)
@@ -37,6 +40,7 @@ public sealed class RewriteCoordinator
             var context = await _selectionService.CaptureAsync(cancellationToken);
             if (context is null)
             {
+                AppLog.Info("Hotkey pressed, but no selected text was captured");
                 _overlay.ShowError(
                     "Select some editable text, then press the shortcut again.",
                     canRetry: false);
@@ -65,6 +69,7 @@ public sealed class RewriteCoordinator
         }
         catch (Exception exception)
         {
+            AppLog.Error("Could not capture the selection", exception);
             _overlay.ShowError(exception.Message);
         }
         finally
@@ -86,16 +91,26 @@ public sealed class RewriteCoordinator
             return;
         }
 
+        using var generation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var clock = Stopwatch.StartNew();
+        var summary = $"{mode} with {_transformer.Label} in {context.ApplicationName ?? "unknown app"}, "
+            + $"{selection.ToPlainText().Length} characters, formatted: {selection.HasFormatting}";
+        AppLog.Info($"Started {summary}");
+
         try
         {
-            _overlay.ShowGenerating();
+            _overlay.ShowGenerating(generation.Cancel);
             if (mode == RewriteMode.Format)
             {
-                await FormatAsync(context, selection, instruction, cancellationToken);
+                await FormatAsync(context, selection, instruction, generation.Token, cancellationToken);
+                AppLog.Info($"Finished {mode} in {clock.Elapsed.TotalSeconds:0.0} s");
                 return;
             }
 
             var isHtml = selection.HasFormatting;
+
+            // Rebuilding the overlay's document on every token would stutter.
+            var sinceLastUpdate = Stopwatch.StartNew();
             var result = await _transformer.TransformAsync(
                 new RewriteRequest(
                     isHtml ? selection.ToHtml() : selection.ToPlainText(),
@@ -104,8 +119,19 @@ public sealed class RewriteCoordinator
                     new RewriteContext(context.ApplicationName, context.WindowTitle),
                     tone,
                     isHtml),
-                cancellationToken);
+                partial =>
+                {
+                    if (sinceLastUpdate.ElapsedMilliseconds >= PartialTextIntervalMilliseconds)
+                    {
+                        sinceLastUpdate.Restart();
+                        _overlay.ShowPartial(isHtml
+                            ? RichDocument.FromPartialModelOutput(partial)
+                            : RichDocument.FromPlainText(partial.TrimStart()));
+                    }
+                },
+                generation.Token);
 
+            AppLog.Info($"Finished {mode} in {clock.Elapsed.TotalSeconds:0.0} s, {result.Text.Length} characters");
             _overlay.ShowSuggestion(
                 isHtml
                     ? RichDocument.FromModelOutput(result.Text).MatchColorsTo(selection)
@@ -116,15 +142,18 @@ public sealed class RewriteCoordinator
         }
         catch (OperationCanceledException)
         {
-            // Cancellation is an expected exit path.
+            AppLog.Info($"Stopped {mode} after {clock.Elapsed.TotalSeconds:0.0} s");
+            _overlay.ShowStopped();
         }
         catch (AiUnavailableException exception)
         {
+            AppLog.Error($"Failed {summary}", exception);
             _overlay.ShowError(exception.Message);
             AiUnavailable?.Invoke(this, exception.Message);
         }
         catch (Exception exception)
         {
+            AppLog.Error($"Failed {summary}", exception);
             _overlay.ShowError(exception.Message);
         }
         finally
@@ -137,12 +166,13 @@ public sealed class RewriteCoordinator
         SelectionContext context,
         RichDocument selection,
         string instruction,
+        CancellationToken generationToken,
         CancellationToken cancellationToken)
     {
         var result = await _transformer.SuggestFormattingAsync(
             selection.ToPlainText(),
             instruction,
-            cancellationToken);
+            generationToken);
         var formatted = selection.ApplyFormatting(
             result.Plan,
             followModelStrictly: instruction != GetDefaultInstruction(RewriteMode.Format));

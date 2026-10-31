@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -85,12 +86,15 @@ public sealed class OllamaBackend : IChatBackend
         }
     }
 
-    public async Task<string> CompleteAsync(ChatPrompt prompt, CancellationToken cancellationToken = default)
+    public async Task<string> CompleteAsync(
+        ChatPrompt prompt,
+        Action<string>? onText = null,
+        CancellationToken cancellationToken = default)
     {
         var payload = new
         {
             model = _model,
-            stream = false,
+            stream = true,
             format = prompt.ExpectJson ? "json" : null,
             messages = new[]
             {
@@ -106,29 +110,48 @@ public sealed class OllamaBackend : IChatBackend
 
         try
         {
-            using var response = await Client.PostAsJsonAsync(
-                "api/chat",
-                payload,
-                RequestOptions,
+            using var request = new HttpRequestMessage(HttpMethod.Post, "api/chat")
+            {
+                Content = JsonContent.Create(payload, options: RequestOptions)
+            };
+            using var response = await Client.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
-
-            var result = await response.Content.ReadFromJsonAsync<OllamaChatResponse>(
-                cancellationToken: cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = CreateProviderError(result?.Error);
-                throw IsModelMissing(result?.Error)
-                    ? new AiUnavailableException(error)
-                    : new InvalidOperationException(error);
+                var failure = await response.Content.ReadFromJsonAsync<OllamaChatResponse>(
+                    cancellationToken: cancellationToken);
+                throw CreateFailure(failure?.Error);
             }
 
-            var content = result?.Message?.Content?.Trim();
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var reader = new StreamReader(stream);
+            var text = new StringBuilder();
+
+            while (await reader.ReadLineAsync(cancellationToken) is { } line)
+            {
+                var chunk = JsonSerializer.Deserialize<OllamaChatResponse>(line);
+                if (chunk?.Error is { } error)
+                {
+                    throw CreateFailure(error);
+                }
+
+                if (!string.IsNullOrEmpty(chunk?.Message?.Content))
+                {
+                    text.Append(chunk.Message.Content);
+                    onText?.Invoke(text.ToString());
+                }
+            }
+
+            var content = text.ToString().Trim();
             return string.IsNullOrWhiteSpace(content)
                 ? throw new InvalidOperationException("The local model returned an empty response. Please try again.")
                 : content;
         }
-        catch (HttpRequestException exception)
+        catch (Exception exception) when (exception is HttpRequestException or IOException
+            && !cancellationToken.IsCancellationRequested)
         {
             throw new AiUnavailableException(
                 "Local AI is not running. Start Ollama, or switch to online mode in Settings.",
@@ -141,6 +164,10 @@ public sealed class OllamaBackend : IChatBackend
                 exception);
         }
     }
+
+    private Exception CreateFailure(string? error) => IsModelMissing(error)
+        ? new AiUnavailableException(CreateProviderError(error))
+        : new InvalidOperationException(CreateProviderError(error));
 
     public async Task DownloadModelAsync(IProgress<string> progress, CancellationToken cancellationToken = default)
     {

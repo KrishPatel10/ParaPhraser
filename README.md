@@ -14,6 +14,8 @@ This starter implements the complete Windows interaction loop:
 - `Ctrl+Alt+F` for formatting without changing a word.
 - Clipboard-preserving selection capture.
 - Minimal result overlay with Copy, Replace, Enter, and Escape actions.
+- Results appear as they are written. **Stop** or closing the overlay ends the
+  request. A stopped result stays visible but cannot replace the original.
 - One unified writing-tools screen with editable context, Fix grammar, Rewrite,
   and Shorten actions, plus Original, Polite, Professional, Casual, and
   Emojified tone choices.
@@ -42,6 +44,12 @@ choose **Settings** to pick how it writes:
   terms and pricing apply. Application names and window titles are not sent.
   Keys are encrypted for your Windows account with DPAPI and stored in
   `%APPDATA%\ParaPhraser\settings.json`.
+
+To investigate a failure, right-click the tray icon and choose
+**Open logs folder**. The log at `%LOCALAPPDATA%\ParaPhraser\logs` records each
+request's mode, provider, model, application, character counts, timings, retries,
+and errors. It stays on this computer and never contains selected text, model
+replies, instructions, window titles, or API keys.
 
 ## Prerequisites
 
@@ -95,8 +103,11 @@ be created only after shortcut, startup, signing, and update behavior are stable
 ## Known MVP limitations
 
 - Offline mode needs Ollama running with the chosen model installed.
-- Online mode has not yet been run with a real API key. Requests and errors were
-  tested against fake servers and against each provider with an invalid key.
+- Online mode has been run with a real Gemini key. Claude, OpenAI, and OpenRouter
+  were tested only against fake servers and with an invalid key.
+- Popular online models can be overloaded. ParaPhraser retries brief server
+  errors and stops waiting after 30 seconds. If that happens, pick another model
+  in Settings. Flash-lite models are often less busy.
 - Context is currently limited to the selection, application name, and window
   title. Surrounding text through UI Automation is a later compatibility slice.
 - Shortcuts are currently fixed.

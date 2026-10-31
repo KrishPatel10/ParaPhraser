@@ -5,6 +5,9 @@ using System.Text.RegularExpressions;
 using ParaPhraser.Core;
 using ParaPhraser.Desktop.Services;
 
+var logFolder = Path.Combine(Path.GetTempPath(), $"paraphraser-log-{Guid.NewGuid():N}");
+AppLog.FilePath = Path.Combine(logFolder, "paraphraser.log");
+
 var transformer = new DemoTextTransformer();
 
 var grammar = await transformer.TransformAsync(
@@ -232,18 +235,167 @@ if (flowFailure is not null)
 }
 
 var openAi = OnlineProvider.Find("openai");
-var fakeServer = new FakeServer("""{"choices":[{"message":{"content":" Done. "}}]}""");
+var fakeServer = new FakeServer(
+    ": OPENROUTER PROCESSING\n\n"
+    + """data: {"choices":[{"delta":{"role":"assistant"}}]}""" + "\n\n"
+    + """data: {"choices":[{"delta":{"content":" Do"}}]}""" + "\n\n"
+    + """data: {"choices":[{"delta":{"content":"ne. "},"finish_reason":"stop"}]}""" + "\n\n"
+    + "data: [DONE]\n\n");
 var openAiBackend = new OpenAiCompatibleBackend(openAi, "test-key", "test-model", new HttpClient(fakeServer));
+var streamedText = new List<string>();
 Require(
-    await openAiBackend.CompleteAsync(new ChatPrompt("rules", "text")) == "Done.",
-    "An OpenAI-style reply was not read.");
+    await openAiBackend.CompleteAsync(new ChatPrompt("rules", "text"), streamedText.Add) == "Done.",
+    "An OpenAI-style stream was not read.");
+Require(
+    streamedText.SequenceEqual([" Do", " Done. "]),
+    "Streaming must report all the text so far, as it arrives.");
 Require(
     fakeServer.LastUrl == "https://api.openai.com/v1/chat/completions"
     && fakeServer.LastAuthorization == "Bearer test-key"
     && fakeServer.LastBody.Contains("\"model\":\"test-model\"", StringComparison.Ordinal)
+    && fakeServer.LastBody.Contains("\"stream\":true", StringComparison.Ordinal)
     && fakeServer.LastBody.Contains("\"role\":\"system\"", StringComparison.Ordinal)
     && !fakeServer.LastBody.Contains("temperature", StringComparison.Ordinal),
     "An OpenAI-style request had the wrong shape.");
+
+var busyThenFine = new FakeServer(
+    """data: {"choices":[{"delta":{"content":"Recovered"}}]}""" + "\n\n",
+    failuresFirst: 1);
+Require(
+    await new OpenAiCompatibleBackend(openAi, "key", "m", new HttpClient(busyThenFine))
+        .CompleteAsync(new ChatPrompt("a", "b")) == "Recovered"
+    && busyThenFine.RequestCount == 2,
+    "A brief server error must be retried with a fresh request.");
+
+var alwaysBusy = new FakeServer(
+    """{"error":{"message":"The model test-secret-key is overloaded."}}""",
+    System.Net.HttpStatusCode.ServiceUnavailable);
+try
+{
+    await new OpenAiCompatibleBackend(openAi, "test-secret-key", "m", new HttpClient(alwaysBusy))
+        .CompleteAsync(new ChatPrompt("a", "b"));
+    throw new InvalidOperationException("Expected a server error.");
+}
+catch (InvalidOperationException exception)
+{
+    Require(
+        exception.Message.StartsWith("OpenAI is having problems (503): The model *** is overloaded.", StringComparison.Ordinal)
+        && exception.Message.Contains("pick another model", StringComparison.Ordinal)
+        && alwaysBusy.RequestCount == 3,
+        $"A lasting server error must give up and show the reason: {exception.Message}");
+}
+
+var silentServer = new SilentServer();
+var silentBackend = new OpenAiCompatibleBackend(
+    openAi,
+    "key",
+    "busy-model",
+    new HttpClient(silentServer),
+    firstResponseTimeout: TimeSpan.FromMilliseconds(100));
+var silentClock = System.Diagnostics.Stopwatch.StartNew();
+try
+{
+    await silentBackend.CompleteAsync(new ChatPrompt("a", "b"));
+    throw new InvalidOperationException("Expected an overloaded model to give up.");
+}
+catch (AiUnavailableException exception)
+{
+    Require(
+        exception.Message.Contains("busy-model may be overloaded", StringComparison.Ordinal)
+        && silentServer.RequestCount == 1
+        && silentClock.Elapsed < TimeSpan.FromSeconds(5),
+        $"A silent model must give up once with a useful message: {exception.Message}");
+}
+
+using (var stopNow = new CancellationTokenSource(TimeSpan.FromMilliseconds(50)))
+{
+    var stopWasReported = false;
+    try
+    {
+        await new OpenAiCompatibleBackend(openAi, "key", "m", new HttpClient(new SilentServer()))
+            .CompleteAsync(new ChatPrompt("a", "b"), cancellationToken: stopNow.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        stopWasReported = true;
+    }
+
+    Require(stopWasReported, "Pressing Stop must not be reported as a provider failure.");
+}
+
+var mixedModels = await new OpenAiCompatibleBackend(
+    OnlineProvider.Find("gemini"),
+    "key",
+    string.Empty,
+    new HttpClient(new FakeServer("""{"data":[{"id":"models/gemini-3.5-flash-lite"},{"id":"models/gemini-3.8-live"},{"id":"models/deep-research-preview"},{"id":"models/gemini-2.5-computer-use-preview"},{"id":"models/antigravity-preview"}]}""")))
+    .ListModelsAsync();
+Require(
+    mixedModels.SequenceEqual(["gemini-3.5-flash-lite"]),
+    "Models that cannot rewrite text must not be offered.");
+
+var failureLog = File.ReadAllText(AppLog.FilePath);
+Require(
+    failureLog.Contains("attempt 1, retrying", StringComparison.Ordinal)
+    && failureLog.Contains("HTTP 503: The model *** is overloaded.", StringComparison.Ordinal)
+    && !failureLog.Contains("test-secret-key", StringComparison.Ordinal),
+    "The log must record retries and failures but never the API key.");
+
+var rejectedKey = new FakeServer(
+    """{"error":{"message":"Incorrect API key provided: partial-key-echo"}}""",
+    System.Net.HttpStatusCode.Unauthorized);
+await RequireError<AiUnavailableException>(rejectedKey, "rejected your API key", "partial-key-echo");
+Require(
+    File.ReadAllText(AppLog.FilePath) is var rejectedLog
+    && rejectedLog.Contains("HTTP 401", StringComparison.Ordinal)
+    && !rejectedLog.Contains("partial-key-echo", StringComparison.Ordinal),
+    "A rejected key's error text must not reach the log.");
+
+AppLog.Info(new string('x', 1024 * 1024));
+AppLog.Info("after rotation");
+Require(
+    File.Exists(Path.ChangeExtension(AppLog.FilePath, ".previous.log"))
+    && new FileInfo(AppLog.FilePath).Length < 1024
+    && File.ReadAllText(AppLog.FilePath).Contains("after rotation", StringComparison.Ordinal),
+    "The log must rotate instead of growing forever.");
+
+var claudeWithoutKey = new AnthropicBackend(OnlineProvider.Find("anthropic"), string.Empty, "m", "http://127.0.0.1:9");
+try
+{
+    await claudeWithoutKey.CompleteAsync(new ChatPrompt("a", "b"));
+    throw new InvalidOperationException("Expected a connection error.");
+}
+catch (AiUnavailableException)
+{
+    // An empty key must reach this friendly error, not crash the error logging.
+}
+
+var workingLogPath = AppLog.FilePath;
+AppLog.FilePath = Path.Combine(logFolder, "bad\0name", "paraphraser.log");
+AppLog.Error("must not throw", new InvalidOperationException("test"));
+AppLog.FilePath = workingLogPath;
+
+var notRetried = new FakeServer("{}", System.Net.HttpStatusCode.TooManyRequests);
+await RequireError<InvalidOperationException>(notRetried, "rate limit", "unknown");
+Require(notRetried.RequestCount == 1, "Rate limits must not be retried.");
+
+await RequireStreamError(
+    """data: {"error":{"message":"provider overloaded"}}""" + "\n\n",
+    "provider overloaded");
+await RequireStreamError(
+    """data: {"choices":[{"delta":{"content":"half a sen"},"finish_reason":"length"}]}""" + "\n\n",
+    "cut off");
+await RequireStreamError("data: [DONE]\n\n", "empty response");
+await RequireStreamError("data: {not json\n\n", "could not be read");
+
+Require(
+    RichDocument.FromPartialModelOutput("```html\n<p>Hello <b>wor").ToHtml() == "<p>Hello <b>wor</b></p>",
+    "Partial output must drop the code fence and survive an open tag.");
+Require(
+    RichDocument.FromPartialModelOutput("<p>Hello <span sty").ToHtml() == "<p>Hello</p>",
+    "A half-written tag must not appear as text.");
+Require(
+    RichDocument.FromPartialModelOutput("<p>Done</p>\n```").ToHtml() == "<p>Done</p>",
+    "A closing fence must not appear as text.");
 
 var keyCheckServer = new FakeServer("{}", System.Net.HttpStatusCode.Unauthorized);
 var keyCheck = await new OpenAiCompatibleBackend(
@@ -400,6 +552,8 @@ if (string.Equals(
     Console.WriteLine($"Conflicting instruction: {conflictingInstruction.Text}");
 }
 
+Directory.Delete(logFolder, recursive: true);
+
 Console.WriteLine("All ParaPhraser.Core smoke tests passed.");
 return;
 
@@ -417,6 +571,24 @@ static void RequireEnglish(string text, string message)
         WritingLanguageResolver.Resolve(text, WritingLanguage.Auto) == WritingLanguage.English
         && !text.Any(character => character is >= '\u0900' and <= '\u097F'),
         message);
+}
+
+static async Task RequireStreamError(string stream, string expected)
+{
+    var backend = new OpenAiCompatibleBackend(
+        OnlineProvider.Find("openai"),
+        "key",
+        "test-model",
+        new HttpClient(new FakeServer(stream)));
+
+    try
+    {
+        var text = await backend.CompleteAsync(new ChatPrompt("rules", "text"));
+        throw new InvalidOperationException($"Expected a stream error, got text: {text}");
+    }
+    catch (InvalidOperationException exception) when (exception.Message.Contains(expected, StringComparison.Ordinal))
+    {
+    }
 }
 
 static async Task RequireError<TException>(FakeServer server, string expected, string forbidden)
@@ -444,8 +616,13 @@ static async Task RequireError<TException>(FakeServer server, string expected, s
     throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
 }
 
-sealed class FakeServer(string body, System.Net.HttpStatusCode status = System.Net.HttpStatusCode.OK) : HttpMessageHandler
+sealed class FakeServer(
+    string body,
+    System.Net.HttpStatusCode status = System.Net.HttpStatusCode.OK,
+    int failuresFirst = 0) : HttpMessageHandler
 {
+    public int RequestCount { get; private set; }
+
     public string? LastUrl { get; private set; }
 
     public string? LastAuthorization { get; private set; }
@@ -456,12 +633,30 @@ sealed class FakeServer(string body, System.Net.HttpStatusCode status = System.N
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
+        RequestCount++;
         LastUrl = request.RequestUri?.ToString();
         LastAuthorization = request.Headers.Authorization?.ToString();
         LastBody = request.Content is null
             ? string.Empty
             : await request.Content.ReadAsStringAsync(cancellationToken);
-        return new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+
+        return RequestCount <= failuresFirst
+            ? new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable) { Content = new StringContent("{}") }
+            : new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+    }
+}
+
+sealed class SilentServer : HttpMessageHandler
+{
+    public int RequestCount { get; private set; }
+
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        RequestCount++;
+        await Task.Delay(Timeout.Infinite, cancellationToken);
+        throw new InvalidOperationException("Unreachable.");
     }
 }
 
@@ -481,9 +676,13 @@ sealed class StubBackend(bool isLocal, string reply) : IChatBackend
     public Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<string>>(["model"]);
 
-    public Task<string> CompleteAsync(ChatPrompt prompt, CancellationToken cancellationToken = default)
+    public Task<string> CompleteAsync(
+        ChatPrompt prompt,
+        Action<string>? onText = null,
+        CancellationToken cancellationToken = default)
     {
         LastPrompt = prompt;
+        onText?.Invoke(reply);
         return Task.FromResult(reply);
     }
 }

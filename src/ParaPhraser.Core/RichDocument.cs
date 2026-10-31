@@ -126,6 +126,17 @@ public sealed partial class RichDocument
         return ParseHtml(text);
     }
 
+    /// <summary>
+    /// Reads text still being written. A half-finished tag or code fence is
+    /// hidden so it never flashes on screen as literal text.
+    /// </summary>
+    public static RichDocument FromPartialModelOutput(string output)
+    {
+        var text = OpeningFenceRegex().Replace(output.TrimStart(), string.Empty)
+            .Replace("```", string.Empty, StringComparison.Ordinal);
+        return FromModelOutput(UnfinishedTagRegex().Replace(text, string.Empty));
+    }
+
     public static RichDocument ParseHtml(string html) => new HtmlReader().Read(html).Document;
 
     /// <summary>
@@ -794,6 +805,12 @@ public sealed partial class RichDocument
         @"\b(?:block\w*|risk\w*|warn\w*|danger\w*|urgent|overdue|fail\w*|delay\w*|cannot|can't|never|do not|don't|must not)\b",
         RegexOptions.IgnoreCase)]
     private static partial Regex WarningRegex();
+
+    [GeneratedRegex(@"^```\w*\s*")]
+    private static partial Regex OpeningFenceRegex();
+
+    [GeneratedRegex(@"<[^<>]*$")]
+    private static partial Regex UnfinishedTagRegex();
 
     [GeneratedRegex(@"\*\*(?=\S)([^\n]+?)(?<=\S)\*\*")]
     private static partial Regex MarkdownBoldRegex();

@@ -21,6 +21,12 @@ public interface IChatBackend
 
     Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Returns non-empty model text, or throws with a message fit to show the user.</summary>
-    Task<string> CompleteAsync(ChatPrompt prompt, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Returns non-empty model text, or throws with a message fit to show the
+    /// user. <paramref name="onText"/> receives all the text so far as it arrives.
+    /// </summary>
+    Task<string> CompleteAsync(
+        ChatPrompt prompt,
+        Action<string>? onText = null,
+        CancellationToken cancellationToken = default);
 }

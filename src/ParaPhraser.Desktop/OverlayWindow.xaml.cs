@@ -41,6 +41,8 @@ public partial class OverlayWindow : Window
     private bool _allowClose;
     private string _providerName = "Ollama";
     private bool _isLocalProvider = true;
+    private Action? _stopGeneration;
+    private bool _hasPartialText;
 
     public OverlayWindow()
     {
@@ -57,6 +59,15 @@ public partial class OverlayWindow : Window
             HighlightColors,
             "No highlight",
             Brushes.Transparent);
+
+        // Closing the overlay must not leave an online request running and billing.
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is false)
+            {
+                _stopGeneration?.Invoke();
+            }
+        };
     }
 
     private void AddSwatches(
@@ -179,12 +190,14 @@ public partial class OverlayWindow : Window
         InstructionText.CaretIndex = InstructionText.Text.Length;
     }
 
-    public void ShowGenerating()
+    public void ShowGenerating(Action stop)
     {
         ResultPanel.Visibility = Visibility.Visible;
         ShowResultMessage(_isLocalProvider ? "Generating locally…" : "Generating…");
         StatusText.Text = $"Waiting for {_providerName}";
-        GenerateButton.IsEnabled = false;
+        _stopGeneration = stop;
+        _hasPartialText = false;
+        GenerateButton.Content = "Stop  ■";
         CopyButton.IsEnabled = false;
         ReplaceButton.IsEnabled = false;
         _replaceAsync = null;
@@ -193,12 +206,49 @@ public partial class OverlayWindow : Window
         KeepOnScreen();
     }
 
+    public void ShowPartial(RichDocument partial)
+    {
+        if (_stopGeneration is null)
+        {
+            return;
+        }
+
+        _hasPartialText = true;
+        ResultText.Document = RichFlowDocument.ToFlowDocument(partial);
+        ResultText.ScrollToEnd();
+        StatusText.Text = $"Writing with {_providerName}…";
+        UpdateLayout();
+        KeepOnScreen();
+    }
+
+    /// <summary>
+    /// Keeps what was written visible, but a cut-off rewrite cannot be pasted
+    /// over the original.
+    /// </summary>
+    public void ShowStopped()
+    {
+        if (!_hasPartialText)
+        {
+            ShowResultMessage("Stopped before any text arrived.");
+        }
+
+        StatusText.Text = "Stopped. Generate again when you're ready.";
+        EndGeneration();
+    }
+
+    private void EndGeneration()
+    {
+        _stopGeneration = null;
+        GenerateButton.Content = "Generate  ✦";
+    }
+
     public void ShowSuggestion(
         RichDocument suggestion,
         string status,
         Func<RichDocument, Task> replaceAsync,
         Func<RichDocument, Task> copyAsync)
     {
+        EndGeneration();
         ResultPanel.Visibility = Visibility.Visible;
         ResultText.Document = RichFlowDocument.ToFlowDocument(suggestion);
         ResultText.IsReadOnly = false;
@@ -230,6 +280,7 @@ public partial class OverlayWindow : Window
             SourceText.Text = "Writing assistant";
         }
 
+        EndGeneration();
         ResultPanel.Visibility = Visibility.Visible;
         ShowResultMessage(message);
         StatusText.Text = "Press Esc to close";
@@ -300,12 +351,19 @@ public partial class OverlayWindow : Window
 
     private async void GenerateButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_stopGeneration is not null)
+        {
+            StatusText.Text = "Stopping…";
+            _stopGeneration();
+            return;
+        }
+
         await GenerateAsync();
     }
 
     private async Task GenerateAsync()
     {
-        if (_generateAsync is null || !GenerateButton.IsEnabled)
+        if (_generateAsync is null || !GenerateButton.IsEnabled || _stopGeneration is not null)
         {
             return;
         }
@@ -407,6 +465,7 @@ public partial class OverlayWindow : Window
         }
         catch (Exception exception)
         {
+            AppLog.Error("Replace failed", exception);
             ShowError(exception.Message);
         }
     }
@@ -423,6 +482,7 @@ public partial class OverlayWindow : Window
             }
             catch (ClipboardBusyException exception)
             {
+                AppLog.Warn("Copy failed: the clipboard was busy");
                 StatusText.Text = exception.Message;
             }
         }
