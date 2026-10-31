@@ -12,7 +12,7 @@ Build a release, using a version newer than the last one:
 ```
 
 This writes `artifacts\setup\releases`. To test the installer, run
-`KrishPatel.ParaPhraser-win-Setup.exe` from there.
+`ParaPhraser-Setup-1.0.0.exe` from there.
 
 Publish it. Every file in the folder is needed, because the app finds updates through
 `releases.win.json` on the latest release:
@@ -33,6 +33,16 @@ a separate copy and stops updates reaching existing users.
 
 Uninstalling closes the app and removes its startup entry. Settings, encrypted keys,
 and logs stay, so a reinstall keeps them.
+
+## Download page
+
+`site` holds the public download page, and `.github/workflows/pages.yml` publishes it
+to <https://krishpatel10.github.io/ParaPhraser/> whenever `site` changes on `main`.
+Before the first run, set **Settings → Pages → Source** to **GitHub Actions**.
+
+Its download buttons ask GitHub for the latest release's `-Setup-` file, so they need
+no edits. If that lookup fails, they open the latest release page instead.
+Update the installer size in `site/index.html` if it changes much.
 
 ## MSIX
 

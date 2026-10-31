@@ -42,6 +42,12 @@ try {
         --outputDir $releaseDirectory
     if ($LASTEXITCODE -ne 0) { throw "vpk could not pack the release." }
 
+    # Only the files people download get friendly names. The app finds updates by the
+    # .nupkg names in releases.win.json, so those must stay as vpk wrote them.
+    Remove-Item (Join-Path $releaseDirectory "ParaPhraser-*")
+    Rename-Item (Join-Path $releaseDirectory "KrishPatel.ParaPhraser-win-Setup.exe") "ParaPhraser-Setup-$Version.exe"
+    Rename-Item (Join-Path $releaseDirectory "KrishPatel.ParaPhraser-win-Portable.zip") "ParaPhraser-Portable-$Version.zip"
+
     Write-Host "Created $releaseDirectory. See docs\packaging.md to publish it."
 }
 finally {
