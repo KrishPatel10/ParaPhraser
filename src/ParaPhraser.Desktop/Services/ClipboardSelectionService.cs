@@ -12,6 +12,7 @@ public sealed class ClipboardSelectionService
 {
     private const ushort VirtualKeyC = 0x43;
     private const ushort VirtualKeyV = 0x56;
+    private const ushort VirtualKeyZ = 0x5A;
     private const int FocusAttempts = 12;
     private const int FocusAttemptDelayMilliseconds = 50;
     private const int ClipboardReadyDelayMilliseconds = 60;
@@ -26,6 +27,13 @@ public sealed class ClipboardSelectionService
         if (targetWindow == nint.Zero)
         {
             return null;
+        }
+
+        // Checked before Ctrl+C, so a password never reaches the clipboard or
+        // Windows clipboard history.
+        if (await SensitiveFieldDetector.IsPasswordFieldFocusedAsync(cancellationToken))
+        {
+            throw new SensitiveSelectionException("ParaPhraser does not work in password fields.");
         }
 
         var applicationName = GetApplicationName(targetWindow);
@@ -50,6 +58,15 @@ public sealed class ClipboardSelectionService
             if (!containsText)
             {
                 return null;
+            }
+
+            // Apps mark secrets this way to keep them out of clipboard history.
+            var isMarkedSensitive = await ClipboardRetry.ExecuteAsync(
+                () => Clipboard.ContainsData(ClipboardSnapshot.ExcludeFromClipboardHistory),
+                cancellationToken);
+            if (isMarkedSensitive)
+            {
+                throw new SensitiveSelectionException("This app marked the selection as sensitive, so ParaPhraser left it alone.");
             }
 
             var selectedText = await ClipboardRetry.ExecuteAsync(
@@ -171,6 +188,18 @@ public sealed class ClipboardSelectionService
                 _ = await clipboardBeforePaste.TryRestoreAsync();
             }
         }
+    }
+
+    /// <summary>Uses the target app's own undo, so it reverses exactly one paste.</summary>
+    public async Task UndoAsync(SelectionContext context, CancellationToken cancellationToken = default)
+    {
+        if (!NativeMethods.IsWindow(context.TargetWindowHandle)
+            || !await ActivateTargetWindowAsync(context.TargetWindowHandle, cancellationToken))
+        {
+            throw new InvalidOperationException("Windows could not return to the original app. Press Ctrl+Z there to undo.");
+        }
+
+        NativeMethods.SendControlChord(VirtualKeyZ);
     }
 
     private static async Task<bool> ActivateTargetWindowAsync(

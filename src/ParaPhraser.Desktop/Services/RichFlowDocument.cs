@@ -54,6 +54,47 @@ public static class RichFlowDocument
         return flow;
     }
 
+    /// <summary>
+    /// Builds the read-only comparison. Removed text is struck through and added
+    /// text is underlined, so the meaning does not rest on color alone.
+    /// </summary>
+    public static FlowDocument ToChangesDocument(IReadOnlyList<TextChange> changes)
+    {
+        var paragraph = new Paragraph { Margin = ParagraphMargin };
+        foreach (var change in changes)
+        {
+            var span = new Span();
+            var lines = change.Text.ReplaceLineEndings("\n").Split('\n');
+            for (var index = 0; index < lines.Length; index++)
+            {
+                if (index > 0)
+                {
+                    span.Inlines.Add(new LineBreak());
+                }
+
+                span.Inlines.Add(new Run(lines[index]));
+            }
+
+            if (change.Kind == ChangeKind.Removed)
+            {
+                span.Foreground = CreateBrush("#b3261e");
+                span.TextDecorations = TextDecorations.Strikethrough;
+            }
+            else if (change.Kind == ChangeKind.Added)
+            {
+                span.Foreground = CreateBrush("#0b5d2e");
+                span.Background = CreateBrush("#cdefd9");
+                span.TextDecorations = TextDecorations.Underline;
+            }
+
+            paragraph.Inlines.Add(span);
+        }
+
+        var flow = new FlowDocument { PagePadding = new Thickness(0) };
+        flow.Blocks.Add(paragraph);
+        return flow;
+    }
+
     public static RichDocument ToRichDocument(FlowDocument flow)
     {
         var blocks = new List<RichBlock>();

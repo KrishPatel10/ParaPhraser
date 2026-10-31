@@ -12,6 +12,13 @@ This starter implements the complete Windows interaction loop:
 - `Ctrl+Alt+G` for grammar correction.
 - `Ctrl+Alt+R` for rewriting.
 - `Ctrl+Alt+F` for formatting without changing a word.
+- `Ctrl+Alt+E` for direct replace: rewrites and pastes straight away with an Undo
+  button. If a detail looks missing, it opens the suggestion for review instead.
+- Every shortcut can be changed in Settings.
+- **Show changes** compares a suggestion with the original, and a warning names
+  numbers, dates, names, and links that may have been dropped.
+- Saved instructions, such as "Client email", in the overlay's Saved list.
+- When an online model is busy, one click retries with a lighter model.
 - Clipboard-preserving selection capture.
 - Minimal result overlay with Copy, Replace, Enter, and Escape actions.
 - Results appear as they are written. **Stop** or closing the overlay ends the
@@ -119,6 +126,10 @@ be created only after shortcut, startup, signing, and update behavior are stable
   rewrite unchanged. Use the picker for the rest.
 - Black, white, and near-grey text or highlights count as the app's default, so
   deliberate grey is not kept.
+- ParaPhraser refuses password fields and text an app marks as sensitive. An app
+  that does not report its password fields to Windows could still be captured.
+- Selected text that reads like a command can still influence the model. Obvious
+  takeovers are refused, but always read the suggestion before replacing.
 - Windows blocks simulated input into applications running at a higher
   integrity level, such as an administrator-elevated editor.
 - Clipboard capture is a compatibility fallback. UI Automation capture will be

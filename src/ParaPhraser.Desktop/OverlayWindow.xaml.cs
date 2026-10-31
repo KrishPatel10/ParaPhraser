@@ -43,6 +43,10 @@ public partial class OverlayWindow : Window
     private bool _isLocalProvider = true;
     private Action? _stopGeneration;
     private bool _hasPartialText;
+    private FlowDocument? _suggestionDocument;
+    private string? _comparisonSource;
+    private Action? _useFallback;
+    private bool _settingSavedInstruction;
 
     public event EventHandler? SettingsRequested;
 
@@ -161,6 +165,85 @@ public partial class OverlayWindow : Window
     private void SettingsButton_Click(object sender, RoutedEventArgs e) =>
         SettingsRequested?.Invoke(this, EventArgs.Empty);
 
+    public void SetSavedInstructions(IEnumerable<SavedInstruction> instructions)
+    {
+        _settingSavedInstruction = true;
+        SavedComboBox.Items.Clear();
+        SavedComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = "Choose…" });
+        foreach (var saved in instructions)
+        {
+            SavedComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem
+            {
+                Content = saved.Name,
+                Tag = saved.Instruction
+            });
+        }
+
+        SavedComboBox.SelectedIndex = 0;
+        _settingSavedInstruction = false;
+    }
+
+    private void SavedComboBox_SelectionChanged(
+        object sender,
+        System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_settingSavedInstruction
+            || SavedComboBox.SelectedItem is not System.Windows.Controls.ComboBoxItem { Tag: string instruction })
+        {
+            return;
+        }
+
+        InstructionText.Text = instruction;
+        InstructionText.CaretIndex = instruction.Length;
+        _settingSavedInstruction = true;
+        SavedComboBox.SelectedIndex = 0;
+        _settingSavedInstruction = false;
+    }
+
+    /// <summary>Shows one click to retry on another model after a busy error.</summary>
+    public void OfferFallback(string model, Action useModel)
+    {
+        _useFallback = useModel;
+        FallbackButton.Content = $"Try {model}";
+        FallbackButton.Visibility = Visibility.Visible;
+        UpdateLayout();
+        KeepOnScreen();
+    }
+
+    private async void FallbackButton_Click(object sender, RoutedEventArgs e)
+    {
+        var useFallback = _useFallback;
+        FallbackButton.Visibility = Visibility.Collapsed;
+        _useFallback = null;
+        useFallback?.Invoke();
+        await GenerateAsync();
+    }
+
+    private void ChangesButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_suggestionDocument is null || _comparisonSource is null)
+        {
+            return;
+        }
+
+        var isShowingChanges = ResultText.Document != _suggestionDocument;
+        if (isShowingChanges)
+        {
+            ResultText.Document = _suggestionDocument;
+            ResultText.IsReadOnly = false;
+            FormatToolbar.IsEnabled = true;
+            ChangesButton.Content = "Show changes";
+            return;
+        }
+
+        var changes = TextComparison.Compare(
+            _comparisonSource,
+            RichFlowDocument.ToRichDocument(_suggestionDocument).ToPlainText());
+        ResultText.Document = RichFlowDocument.ToChangesDocument(changes);
+        ResultText.IsReadOnly = true;
+        FormatToolbar.IsEnabled = false;
+        ChangesButton.Content = "Hide changes";
+    }
     public void ShowComposer(
         RewriteMode mode,
         RichDocument original,
@@ -256,11 +339,16 @@ public partial class OverlayWindow : Window
         RichDocument suggestion,
         string status,
         Func<RichDocument, Task> replaceAsync,
-        Func<RichDocument, Task> copyAsync)
+        Func<RichDocument, Task> copyAsync,
+        RichDocument? original = null)
     {
         EndGeneration();
         ResultPanel.Visibility = Visibility.Visible;
-        ResultText.Document = RichFlowDocument.ToFlowDocument(suggestion);
+        _suggestionDocument = RichFlowDocument.ToFlowDocument(suggestion);
+        _comparisonSource = original?.ToPlainText();
+        ChangesButton.Content = "Show changes";
+        ChangesButton.Visibility = original is null ? Visibility.Collapsed : Visibility.Visible;
+        ResultText.Document = _suggestionDocument;
         ResultText.IsReadOnly = false;
         FormatToolbar.IsEnabled = true;
         StatusText.Text = status;
@@ -277,7 +365,9 @@ public partial class OverlayWindow : Window
     {
         if (!canRetry)
         {
+            // Nothing was captured, so the last selection must not linger on screen.
             _generateAsync = null;
+            OriginalText.Document = RichFlowDocument.ToFlowDocument(RichDocument.FromPlainText(string.Empty));
         }
 
         if (string.IsNullOrWhiteSpace(ModeText.Text))
@@ -304,6 +394,11 @@ public partial class OverlayWindow : Window
 
     private void ShowResultMessage(string message)
     {
+        _suggestionDocument = null;
+        _comparisonSource = null;
+        _useFallback = null;
+        ChangesButton.Visibility = Visibility.Collapsed;
+        FallbackButton.Visibility = Visibility.Collapsed;
         ResultText.Document = RichFlowDocument.ToFlowDocument(RichDocument.FromPlainText(message));
         ResultText.IsReadOnly = true;
         FormatToolbar.IsEnabled = false;
@@ -456,7 +551,8 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        var replacement = RichFlowDocument.ToRichDocument(ResultText.Document);
+        // Read the suggestion itself, because the comparison may be on screen.
+        var replacement = RichFlowDocument.ToRichDocument(_suggestionDocument ?? ResultText.Document);
         if (string.IsNullOrWhiteSpace(replacement.ToPlainText()))
         {
             StatusText.Text = "The suggestion is empty";
@@ -482,7 +578,7 @@ public partial class OverlayWindow : Window
 
     private async void CopyButton_Click(object sender, RoutedEventArgs e)
     {
-        var content = RichFlowDocument.ToRichDocument(ResultText.Document);
+        var content = RichFlowDocument.ToRichDocument(_suggestionDocument ?? ResultText.Document);
         if (_copyAsync is not null && !string.IsNullOrWhiteSpace(content.ToPlainText()))
         {
             try

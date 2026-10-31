@@ -12,7 +12,7 @@ internal sealed class ClipboardSnapshot
 
     // Password managers set this empty format to keep secrets out of Windows
     // clipboard history, so a restore must carry it even though it has no data.
-    private const string ExcludeFromClipboardHistory = "ExcludeClipboardContentFromMonitorProcessing";
+    internal const string ExcludeFromClipboardHistory = "ExcludeClipboardContentFromMonitorProcessing";
 
     // Office takes up to 700 ms to render each of these on demand, and they
     // repeat content already held in the text, HTML, RTF, and bitmap formats.

@@ -28,19 +28,29 @@ public sealed class GlobalHotkeyService : IDisposable
 
     public event EventHandler<int>? HotkeyPressed;
 
-    public void Register(int id, HotkeyModifiers modifiers, VirtualKey key)
+    public void Register(int id, HotkeyModifiers modifiers, uint virtualKey)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var effectiveModifiers = modifiers | HotkeyModifiers.NoRepeat;
-        if (!NativeMethods.RegisterHotKey(_source.Handle, id, effectiveModifiers, key))
+        if (!NativeMethods.RegisterHotKey(_source.Handle, id, effectiveModifiers, (VirtualKey)virtualKey))
         {
             throw new Win32Exception(
                 NativeMethods.GetLastWin32Error(),
-                $"Could not register shortcut {modifiers}+{key}. It may already be used by another app.");
+                "It may already be used by another app.");
         }
 
         _registeredIds.Add(id);
+    }
+
+    public void UnregisterAll()
+    {
+        foreach (var id in _registeredIds)
+        {
+            NativeMethods.UnregisterHotKey(_source.Handle, id);
+        }
+
+        _registeredIds.Clear();
     }
 
     private nint WindowProcedure(
@@ -66,12 +76,7 @@ public sealed class GlobalHotkeyService : IDisposable
             return;
         }
 
-        foreach (var id in _registeredIds)
-        {
-            NativeMethods.UnregisterHotKey(_source.Handle, id);
-        }
-
-        _registeredIds.Clear();
+        UnregisterAll();
         _source.RemoveHook(WindowProcedure);
         _source.Dispose();
         _disposed = true;

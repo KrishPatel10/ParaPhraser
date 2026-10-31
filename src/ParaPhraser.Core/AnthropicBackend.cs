@@ -147,7 +147,7 @@ public sealed class AnthropicBackend : IChatBackend
         AnthropicRateLimitException =>
             new InvalidOperationException($"{_provider.Name} says you hit a rate limit or ran out of credit. Check your account."),
         Anthropic5xxException =>
-            new InvalidOperationException($"{_provider.Name} is having problems. Please try again shortly."),
+            new ModelBusyException($"{_provider.Name} is having problems. Try again shortly, or pick another model in Settings."),
         AnthropicIOException =>
             new AiUnavailableException($"Could not reach {_provider.Name}. Check your internet connection."),
         IOException or HttpRequestException =>

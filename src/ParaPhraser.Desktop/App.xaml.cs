@@ -16,15 +16,23 @@ public partial class App : Application
     private const int GrammarHotkeyId = 1;
     private const int RewriteHotkeyId = 2;
     private const int FormatHotkeyId = 3;
+    private const int InstantHotkeyId = 4;
     private const int OllamaStartupAttempts = 5;
+    private const int FallbackListSeconds = 8;
 
     private readonly StartupRegistrationService _startupRegistration = new();
+    private readonly HashSet<string> _triedFallbackModels = [];
     private Mutex? _singleInstanceMutex;
     private NotifyIcon? _trayIcon;
     private ToolStripMenuItem? _startupMenuItem;
     private ToolStripMenuItem? _providerMenuItem;
+    private ToolStripMenuItem? _grammarMenuItem;
+    private ToolStripMenuItem? _rewriteMenuItem;
+    private ToolStripMenuItem? _formatMenuItem;
+    private ToolStripMenuItem? _instantMenuItem;
     private GlobalHotkeyService? _hotkeys;
     private OverlayWindow? _overlay;
+    private InstantToast? _toast;
     private RewriteCoordinator? _coordinator;
     private ChatTextTransformer? _transformer;
     private AppSettings? _settings;
@@ -54,17 +62,22 @@ public partial class App : Application
         _settings = AppSettings.Load();
         _transformer = new ChatTextTransformer(_settings.CreateBackend());
         AppLog.Info($"ParaPhraser started, version {GetType().Assembly.GetName().Version}, using {_transformer.Label}");
-        _coordinator = new RewriteCoordinator(selectionService, _transformer, _overlay);
+        _toast = new InstantToast();
+        _coordinator = new RewriteCoordinator(selectionService, _transformer, _overlay, _toast)
+        {
+            FindFallbackModelAsync = FindFallbackModelAsync,
+            UseModel = UseFallbackModel
+        };
         _coordinator.AiUnavailable += OnAiUnavailable;
+        _coordinator.RewriteSucceeded += OnRewriteSucceeded;
         _overlay.SettingsRequested += (_, _) => OpenSettings();
+        _overlay.SetSavedInstructions(_settings.SavedInstructions);
 
         _hotkeys = new GlobalHotkeyService();
         _hotkeys.HotkeyPressed += OnHotkeyPressed;
-        _hotkeys.Register(GrammarHotkeyId, HotkeyModifiers.Control | HotkeyModifiers.Alt, VirtualKey.G);
-        _hotkeys.Register(RewriteHotkeyId, HotkeyModifiers.Control | HotkeyModifiers.Alt, VirtualKey.R);
 
         ConfigureTrayIcon();
-        RegisterFormatHotkey();
+        RegisterShortcuts();
         ShowCurrentProvider();
         _ = NotifyAiStatusAsync(openSettingsIfNotReady: isFirstRun);
 
@@ -80,21 +93,140 @@ public partial class App : Application
             AppLog.Error("Unobserved background task error", args.Exception);
     }
 
-    // Format is also in the action list, so losing this shortcut to another app
-    // must not stop ParaPhraser from starting.
-    private void RegisterFormatHotkey()
+    // Another app can own any shortcut, and that must not stop ParaPhraser from
+    // starting, so each failure is reported and the rest still register.
+    private void RegisterShortcuts()
+    {
+        if (_hotkeys is null || _settings is null)
+        {
+            return;
+        }
+
+        _hotkeys.UnregisterAll();
+        var shortcuts = _settings.Shortcuts;
+        (int Id, string Text)[] bindings =
+        [
+            (GrammarHotkeyId, shortcuts.Grammar),
+            (RewriteHotkeyId, shortcuts.Rewrite),
+            (FormatHotkeyId, shortcuts.Format),
+            (InstantHotkeyId, shortcuts.Instant)
+        ];
+
+        var failed = new List<string>();
+        foreach (var (id, text) in bindings)
+        {
+            try
+            {
+                if (HotkeyText.TryParse(text, out var modifiers, out var virtualKey))
+                {
+                    _hotkeys.Register(id, modifiers, virtualKey);
+                }
+                else
+                {
+                    failed.Add(text);
+                }
+            }
+            catch (Win32Exception exception)
+            {
+                AppLog.Warn($"{text} could not be registered: {exception.Message}");
+                failed.Add(text);
+            }
+        }
+
+        if (_grammarMenuItem is not null)
+        {
+            _grammarMenuItem.Text = $"{shortcuts.Grammar}  Fix grammar";
+            _rewriteMenuItem!.Text = $"{shortcuts.Rewrite}  Rewrite";
+            _formatMenuItem!.Text = $"{shortcuts.Format}  Format";
+            _instantMenuItem!.Text = $"{shortcuts.Instant}  Direct replace";
+        }
+
+        if (failed.Count > 0)
+        {
+            ShowNotification(
+                "A shortcut isn't available",
+                $"{string.Join(", ", failed)} may be used by another app. Pick another in Settings.",
+                ToolTipIcon.Warning);
+        }
+    }
+
+    private void PauseHotkeys(bool pause)
+    {
+        if (pause)
+        {
+            _hotkeys?.UnregisterAll();
+        }
+        else if (_settingsWindow is not null)
+        {
+            RegisterShortcuts();
+        }
+    }
+
+    private async Task<string?> FindFallbackModelAsync()
+    {
+        if (_settings is not { IsOnline: true } || _transformer is null)
+        {
+            return null;
+        }
+
+        var provider = _settings.GetProvider(OnlineProvider.Find(_settings.OnlineProviderId).Id);
+        var currentModel = provider.Model ?? string.Empty;
+        _triedFallbackModels.Add(currentModel);
+
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(FallbackListSeconds));
+            var models = await _transformer.Backend.ListModelsAsync(timeout.Token);
+            return OnlineProvider.PickFallbackModel(models, currentModel, provider.LastWorkingModel, _triedFallbackModels);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or OperationCanceledException)
+        {
+            AppLog.Warn($"Could not list fallback models: {exception.GetType().Name}");
+            return null;
+        }
+    }
+
+    private void UseFallbackModel(string model)
+    {
+        if (_settings is null)
+        {
+            return;
+        }
+
+        _settings.GetProvider(OnlineProvider.Find(_settings.OnlineProviderId).Id).Model = model;
+        SaveSettings();
+        _transformer = new ChatTextTransformer(_settings.CreateBackend());
+        AppLog.Info($"Switched to fallback model {_transformer.Label}");
+        _coordinator?.UseTransformer(_transformer);
+        ShowCurrentProvider();
+    }
+
+    private void OnRewriteSucceeded(object? sender, EventArgs e)
+    {
+        _triedFallbackModels.Clear();
+        if (_settings is not { IsOnline: true })
+        {
+            return;
+        }
+
+        var provider = _settings.GetProvider(OnlineProvider.Find(_settings.OnlineProviderId).Id);
+        if (provider.LastWorkingModel != provider.Model)
+        {
+            provider.LastWorkingModel = provider.Model;
+            SaveSettings();
+        }
+    }
+
+    // Bookkeeping only, so a failed write must not interrupt a finished rewrite.
+    private void SaveSettings()
     {
         try
         {
-            _hotkeys?.Register(FormatHotkeyId, HotkeyModifiers.Control | HotkeyModifiers.Alt, VirtualKey.F);
+            _settings?.Save();
         }
-        catch (Win32Exception exception)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            AppLog.Warn($"Ctrl+Alt+F could not be registered: {exception.Message}");
-            ShowNotification(
-                "Ctrl+Alt+F isn't available",
-                $"{exception.Message} Use Format from the Action list instead.",
-                ToolTipIcon.Warning);
+            AppLog.Warn($"Could not save settings: {exception.GetType().Name}");
         }
     }
 
@@ -102,6 +234,12 @@ public partial class App : Application
     {
         if (_coordinator is null)
         {
+            return;
+        }
+
+        if (hotkeyId == InstantHotkeyId)
+        {
+            await _coordinator.HandleInstantAsync(_settings?.InstantMode ?? RewriteMode.Grammar);
             return;
         }
 
@@ -122,9 +260,14 @@ public partial class App : Application
     private void ConfigureTrayIcon()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add(new ToolStripMenuItem("Ctrl+Alt+G  Fix grammar") { Enabled = false });
-        menu.Items.Add(new ToolStripMenuItem("Ctrl+Alt+R  Rewrite") { Enabled = false });
-        menu.Items.Add(new ToolStripMenuItem("Ctrl+Alt+F  Format") { Enabled = false });
+        _grammarMenuItem = new ToolStripMenuItem { Enabled = false };
+        _rewriteMenuItem = new ToolStripMenuItem { Enabled = false };
+        _formatMenuItem = new ToolStripMenuItem { Enabled = false };
+        _instantMenuItem = new ToolStripMenuItem { Enabled = false };
+        menu.Items.Add(_grammarMenuItem);
+        menu.Items.Add(_rewriteMenuItem);
+        menu.Items.Add(_formatMenuItem);
+        menu.Items.Add(_instantMenuItem);
         menu.Items.Add(new ToolStripSeparator());
         _providerMenuItem = new ToolStripMenuItem { Enabled = false };
         menu.Items.Add(_providerMenuItem);
@@ -166,10 +309,11 @@ public partial class App : Application
 
         if (_settingsWindow is null)
         {
-            _settingsWindow = new SettingsWindow(_settings, OnSettingsSaved);
+            _settingsWindow = new SettingsWindow(_settings, OnSettingsSaved, PauseHotkeys);
             _settingsWindow.Closed += (_, _) =>
             {
                 _settingsWindow = null;
+                RegisterShortcuts();
 
                 // Hand focus back so the user can press Generate straight away.
                 if (_overlay?.IsVisible == true)
@@ -196,6 +340,8 @@ public partial class App : Application
         _transformer = new ChatTextTransformer(_settings.CreateBackend());
         AppLog.Info($"Settings saved, now using {_transformer.Label}");
         _coordinator?.UseTransformer(_transformer);
+        _triedFallbackModels.Clear();
+        _overlay?.SetSavedInstructions(_settings.SavedInstructions);
         ShowCurrentProvider();
         _ = NotifyAiStatusAsync(openSettingsIfNotReady: false);
     }
@@ -304,6 +450,7 @@ public partial class App : Application
         if (_coordinator is not null)
         {
             _coordinator.AiUnavailable -= OnAiUnavailable;
+            _coordinator.RewriteSucceeded -= OnRewriteSucceeded;
         }
 
         if (_hotkeys is not null)
@@ -324,6 +471,7 @@ public partial class App : Application
         }
 
         _overlay?.CloseForShutdown();
+        _toast?.Close();
         _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);

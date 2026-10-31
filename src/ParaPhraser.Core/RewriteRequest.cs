@@ -6,4 +6,5 @@ public sealed record RewriteRequest(
     string? Instruction = null,
     RewriteContext? Context = null,
     RewriteTone Tone = RewriteTone.Original,
-    bool IsHtml = false);
+    bool IsHtml = false,
+    bool UsesDefaultInstruction = false);
