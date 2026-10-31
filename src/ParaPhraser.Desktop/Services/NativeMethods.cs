@@ -11,6 +11,10 @@ internal static class NativeMethods
     private const ushort VirtualKeyControl = 0x11;
     private const int VirtualKeyMenu = 0x12;
     private const int VirtualKeyShift = 0x10;
+    private const int VirtualKeyLeftWindows = 0x5B;
+    private const int VirtualKeyRightWindows = 0x5C;
+    private const int ExtendedStyleIndex = -20;
+    private const long ExtendedStyleNoActivate = 0x08000000;
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -56,6 +60,12 @@ internal static class NativeMethods
     internal static extern bool IsWindow(nint windowHandle);
 
     [DllImport("user32.dll")]
+    private static extern nint GetWindowLongPtrW(nint windowHandle, int index);
+
+    [DllImport("user32.dll")]
+    private static extern nint SetWindowLongPtrW(nint windowHandle, int index, nint value);
+
+    [DllImport("user32.dll")]
     internal static extern uint GetClipboardSequenceNumber();
 
     [DllImport("user32.dll")]
@@ -90,7 +100,20 @@ internal static class NativeMethods
     {
         return IsKeyPressed(VirtualKeyControl)
             || IsKeyPressed(VirtualKeyMenu)
-            || IsKeyPressed(VirtualKeyShift);
+            || IsKeyPressed(VirtualKeyShift)
+            || IsKeyPressed(VirtualKeyLeftWindows)
+            || IsKeyPressed(VirtualKeyRightWindows);
+    }
+
+    /// <summary>
+    /// Lets a window be clicked without taking focus from the app being edited.
+    /// </summary>
+    internal static void PreventActivation(nint windowHandle)
+    {
+        SetWindowLongPtrW(
+            windowHandle,
+            ExtendedStyleIndex,
+            GetWindowLongPtrW(windowHandle, ExtendedStyleIndex) | (nint)ExtendedStyleNoActivate);
     }
 
     internal static void SendControlChord(ushort virtualKey)

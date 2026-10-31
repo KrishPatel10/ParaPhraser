@@ -256,7 +256,7 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
                 // Not retried: a model this busy stays busy, and a retry would
                 // only double the wait.
                 AppLog.Warn($"{Label}: no response within {_firstResponseTimeout.TotalSeconds:0} s");
-                throw new AiUnavailableException(
+                throw new ModelBusyException(
                     $"{_provider.Name} did not respond, so {_model} may be overloaded. Try again shortly, or pick another model in Settings.",
                     exception);
             }
@@ -289,7 +289,7 @@ public sealed class OpenAiCompatibleBackend : IChatBackend
                 new AiUnavailableException($"{_provider.Name} could not find model {_model}. Pick another in Settings."),
             HttpStatusCode.TooManyRequests =>
                 new InvalidOperationException($"{_provider.Name} says you hit a rate limit or ran out of credit. Check your account."),
-            >= HttpStatusCode.InternalServerError => new InvalidOperationException(serverError),
+            >= HttpStatusCode.InternalServerError => new ModelBusyException(serverError),
             _ when detail.Contains("api key", StringComparison.OrdinalIgnoreCase) =>
                 new AiUnavailableException($"{_provider.Name} rejected your API key. Check it in Settings."),
             _ => new InvalidOperationException($"{_provider.Name} could not process this request: {HideApiKey(detail)}")

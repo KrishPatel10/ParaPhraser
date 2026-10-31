@@ -42,6 +42,26 @@ private.
 `AppSettings` encrypts keys with DPAPI for the current Windows user. A provider's
 key error text is never shown, because some providers echo part of the key.
 
+## Review and direct replace
+
+`TextComparison` powers two things. `Compare` is the word-level diff behind
+**Show changes**, and `FindMissingDetails` looks for numbers, dates, names, and
+links the result dropped. It cannot see a lowercase name, so it supports reading
+the changes rather than replacing that.
+
+Direct replace (`RewriteCoordinator.HandleInstantAsync`) pastes with no review, so
+it is deliberately cautious. Any missing detail, unsupported content, or failure
+opens the normal overlay instead. It only runs the default instruction, which
+keeps `ThrowIfNotAnEdit` fully active. `InstantToast` never takes focus, because
+the paste must land in the user's app. Undo sends that app's own Ctrl+Z.
+
+`ModelBusyException` marks failures another model could fix. The fallback comes
+from `OnlineProvider.PickFallbackModel`, which stays in the same model family so
+OpenRouter's long list cannot move someone to an unrelated paid model.
+
+Global shortcuts are unregistered while a shortcut box has focus. Otherwise
+pressing an existing shortcut would run it instead of reaching the box.
+
 ## Rich text
 
 `RichDocument` is the only format the pipeline shares. Clipboard HTML and model
@@ -93,7 +113,18 @@ without changing selection capture or UI code.
 
 - Never monitor or transmit keystrokes continuously.
 - Capture text only after an explicit shortcut.
-- Reject password and protected controls when UI Automation is introduced.
+- Refuse password fields before sending Ctrl+C. `SensitiveFieldDetector` asks UI
+  Automation, and fails open because not every app answers. Chromium browsers
+  often report the page instead of the field, but they refuse to copy password
+  fields, so nothing reaches the clipboard. Text an app marks with
+  `ExcludeClipboardContentFromMonitorProcessing` is refused too.
+- Treat selected text as untrusted, because it can be someone else's email.
+  `ChatTextTransformer` fences it between markers that change per request, then
+  `ThrowIfNotAnEdit` checks the result. The check matters more than the fence: on
+  Gemma the fence alone stopped almost nothing, and rewording the prompt or moving
+  the text did not help. It compares vocabulary, so an attack that reuses the
+  source's words, such as answering in pirate speak, still gets through. The
+  result is only ever shown as a suggestion, and the model has no tools.
 - Never ship a shared AI provider key inside the desktop binary.
 - `AppLog` must never receive selected text, model responses, instructions,
   window titles, or API keys. Log counts, names, and error codes. Do not log the

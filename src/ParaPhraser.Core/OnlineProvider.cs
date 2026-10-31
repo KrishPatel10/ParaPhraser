@@ -27,6 +27,48 @@ public sealed record OnlineProvider(
     public static OnlineProvider Find(string? id) =>
         All.FirstOrDefault(provider => provider.Id == id) ?? All[0];
 
+    /// <summary>
+    /// Picks a model to try when the current one is busy. It stays within the
+    /// same family, so OpenRouter's long list cannot switch the user to an
+    /// unrelated paid model, and prefers lighter models, which are less busy.
+    /// </summary>
+    public static string? PickFallbackModel(
+        IEnumerable<string> models,
+        string currentModel,
+        string? lastWorkingModel,
+        IReadOnlyCollection<string> alreadyTried)
+    {
+        var family = GetFamily(currentModel);
+        var candidates = models
+            .Where(model => model != currentModel
+                && !alreadyTried.Contains(model)
+                && GetFamily(model) == family
+                && !IsUnstable(model))
+            .ToArray();
+
+        return lastWorkingModel is not null && candidates.Contains(lastWorkingModel)
+            ? lastWorkingModel
+            : candidates
+                .OrderByDescending(GetLightness)
+                .ThenByDescending(model => model, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+    }
+
+    private static string GetFamily(string model) => model.Split('/', '-')[0];
+
+    private static bool IsUnstable(string model) =>
+        new[] { "preview", "latest", "exp" }.Any(word => model.Contains(word, StringComparison.OrdinalIgnoreCase));
+
+    private static int GetLightness(string model)
+    {
+        if (new[] { "lite", "mini", "haiku" }.Any(word => model.Contains(word, StringComparison.OrdinalIgnoreCase)))
+        {
+            return 2;
+        }
+
+        return model.Contains("flash", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+    }
+
     public IChatBackend CreateBackend(string apiKey, string model) => OpenAiBaseUrl is null
         ? new AnthropicBackend(this, apiKey, model)
         : new OpenAiCompatibleBackend(this, apiKey, model);

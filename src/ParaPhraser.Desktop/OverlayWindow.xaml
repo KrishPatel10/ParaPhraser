@@ -212,6 +212,8 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="12" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="16" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
@@ -249,8 +251,20 @@
                                 </ComboBox>
                             </StackPanel>
 
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Margin="1,0,0,8"
+                                           Text="SAVED"
+                                           Style="{StaticResource SectionLabelStyle}" />
+                                <ComboBox x:Name="SavedComboBox"
+                                          AutomationProperties.Name="Saved instructions"
+                                          Height="40"
+                                          ToolTip="Use a saved instruction. Manage them in Settings."
+                                          SelectionChanged="SavedComboBox_SelectionChanged"
+                                          Style="{StaticResource ModernComboBoxStyle}" />
+                            </StackPanel>
+
                             <Button x:Name="GenerateButton"
-                                    Grid.Column="4"
+                                    Grid.Column="6"
                                     MinWidth="112"
                                     Height="40"
                                     VerticalAlignment="Bottom"
@@ -303,9 +317,20 @@
                             Margin="0,16,0,0"
                             Visibility="Collapsed">
                     <Grid Margin="1,0,1,8">
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="SUGGESTION"
-                                   Style="{StaticResource SectionLabelStyle}" />
+                        <StackPanel HorizontalAlignment="Left" Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="SUGGESTION"
+                                       Style="{StaticResource SectionLabelStyle}" />
+                            <Button x:Name="ChangesButton"
+                                    Margin="12,0,0,0"
+                                    Padding="12,0"
+                                    Height="32"
+                                    Content="Show changes"
+                                    ToolTip="Compare the suggestion with your original text"
+                                    Visibility="Collapsed"
+                                    Click="ChangesButton_Click"
+                                    Style="{StaticResource OverlayButtonStyle}" />
+                        </StackPanel>
                         <StackPanel x:Name="FormatToolbar"
                                     HorizontalAlignment="Right"
                                     Orientation="Horizontal">
@@ -398,6 +423,13 @@
                                          Style="{StaticResource PaperEditorStyle}" />
                         </Grid>
                     </Border>
+
+                    <Button x:Name="FallbackButton"
+                            Margin="0,8,0,0"
+                            HorizontalAlignment="Left"
+                            Visibility="Collapsed"
+                            Click="FallbackButton_Click"
+                            Style="{StaticResource PrimaryButtonStyle}" />
                 </StackPanel>
 
                 <Grid Grid.Row="5" Margin="1,16,1,0">

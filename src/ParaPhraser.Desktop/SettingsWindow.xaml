@@ -48,6 +48,180 @@
                     Style="{StaticResource OverlayButtonStyle}" />
         </Grid>
 
+        <StackPanel Margin="0,16,0,0" Orientation="Horizontal">
+            <RadioButton x:Name="AiTabButton"
+                         GroupName="Tabs"
+                         Content="AI model"
+                         IsChecked="True"
+                         Checked="Tab_Checked"
+                         Style="{StaticResource SettingsTabStyle}" />
+            <RadioButton x:Name="ShortcutsTabButton"
+                         GroupName="Tabs"
+                         Content="Shortcuts"
+                         Checked="Tab_Checked"
+                         Style="{StaticResource SettingsTabStyle}" />
+            <RadioButton x:Name="InstructionsTabButton"
+                         GroupName="Tabs"
+                         Content="Saved instructions"
+                         Checked="Tab_Checked"
+                         Style="{StaticResource SettingsTabStyle}" />
+        </StackPanel>
+
+        <StackPanel x:Name="ShortcutsTab" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock Text="Click a box, then press the keys you want."
+                       Foreground="{StaticResource OverlayTextBrush}"
+                       FontSize="13" />
+            <TextBlock Margin="0,4,0,0"
+                       Text="Some keyboards use Ctrl+Alt to type special characters. If a shortcut gets in your way, try Ctrl+Shift or Win with a key."
+                       Foreground="{StaticResource OverlayMutedTextBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="220" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock VerticalAlignment="Center"
+                           Text="Fix grammar"
+                           Foreground="{StaticResource OverlayTextBrush}"
+                           FontSize="13" />
+                <TextBox x:Name="GrammarShortcutBox"
+                         Grid.Column="1"
+                         AutomationProperties.Name="Fix grammar shortcut"
+                         IsReadOnly="True"
+                         PreviewKeyDown="ShortcutBox_PreviewKeyDown"
+                         GotKeyboardFocus="ShortcutBox_GotKeyboardFocus"
+                         LostKeyboardFocus="ShortcutBox_LostKeyboardFocus"
+                         Style="{StaticResource SettingsTextBoxStyle}" />
+
+                <TextBlock Grid.Row="2"
+                           VerticalAlignment="Center"
+                           Text="Rewrite"
+                           Foreground="{StaticResource OverlayTextBrush}"
+                           FontSize="13" />
+                <TextBox x:Name="RewriteShortcutBox"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         AutomationProperties.Name="Rewrite shortcut"
+                         IsReadOnly="True"
+                         PreviewKeyDown="ShortcutBox_PreviewKeyDown"
+                         GotKeyboardFocus="ShortcutBox_GotKeyboardFocus"
+                         LostKeyboardFocus="ShortcutBox_LostKeyboardFocus"
+                         Style="{StaticResource SettingsTextBoxStyle}" />
+
+                <TextBlock Grid.Row="4"
+                           VerticalAlignment="Center"
+                           Text="Format"
+                           Foreground="{StaticResource OverlayTextBrush}"
+                           FontSize="13" />
+                <TextBox x:Name="FormatShortcutBox"
+                         Grid.Row="4"
+                         Grid.Column="1"
+                         AutomationProperties.Name="Format shortcut"
+                         IsReadOnly="True"
+                         PreviewKeyDown="ShortcutBox_PreviewKeyDown"
+                         GotKeyboardFocus="ShortcutBox_GotKeyboardFocus"
+                         LostKeyboardFocus="ShortcutBox_LostKeyboardFocus"
+                         Style="{StaticResource SettingsTextBoxStyle}" />
+
+                <TextBlock Grid.Row="6"
+                           VerticalAlignment="Center"
+                           Text="Direct replace"
+                           Foreground="{StaticResource OverlayTextBrush}"
+                           FontSize="13" />
+                <TextBox x:Name="InstantShortcutBox"
+                         Grid.Row="6"
+                         Grid.Column="1"
+                         AutomationProperties.Name="Direct replace shortcut"
+                         IsReadOnly="True"
+                         PreviewKeyDown="ShortcutBox_PreviewKeyDown"
+                         GotKeyboardFocus="ShortcutBox_GotKeyboardFocus"
+                         LostKeyboardFocus="ShortcutBox_LostKeyboardFocus"
+                         Style="{StaticResource SettingsTextBoxStyle}" />
+            </Grid>
+
+            <TextBlock Margin="1,16,0,8"
+                       Text="DIRECT REPLACE DOES"
+                       Style="{StaticResource SectionLabelStyle}" />
+            <ComboBox x:Name="InstantModeComboBox"
+                      AutomationProperties.Name="Direct replace action"
+                      Height="40"
+                      Style="{StaticResource ModernComboBoxStyle}">
+                <ComboBoxItem Content="Fix grammar" />
+                <ComboBoxItem Content="Rewrite" />
+                <ComboBoxItem Content="Shorten" />
+            </ComboBox>
+            <TextBlock Margin="1,8,0,0"
+                       Text="Pastes straight away with an Undo button. If a detail looks missing, it opens the suggestion for you to check instead."
+                       Foreground="{StaticResource OverlayMutedTextBrush}"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel x:Name="InstructionsTab" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock Text="These appear in the Saved list next to Action and Tone."
+                       Foreground="{StaticResource OverlayTextBrush}"
+                       FontSize="13" />
+            <ScrollViewer Margin="0,12,0,0"
+                          MaxHeight="340"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="SavedInstructionsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox AutomationProperties.Name="Instruction name"
+                                         VerticalContentAlignment="Top"
+                                         Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SettingsTextBoxStyle}" />
+                                <TextBox Grid.Column="2"
+                                         AutomationProperties.Name="Instruction text"
+                                         AcceptsReturn="True"
+                                         MaxHeight="90"
+                                         TextWrapping="Wrap"
+                                         VerticalContentAlignment="Top"
+                                         Text="{Binding Instruction, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SettingsTextBoxStyle}" />
+                                <Button Grid.Column="4"
+                                        Width="32"
+                                        Height="32"
+                                        Padding="0"
+                                        VerticalAlignment="Top"
+                                        AutomationProperties.Name="Remove instruction"
+                                        Content="×"
+                                        ToolTip="Remove"
+                                        Click="RemoveInstructionButton_Click"
+                                        Style="{StaticResource OverlayButtonStyle}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <Button Margin="0,4,0,0"
+                    HorizontalAlignment="Left"
+                    Content="Add instruction"
+                    Click="AddInstructionButton_Click"
+                    Style="{StaticResource OverlayButtonStyle}" />
+        </StackPanel>
+
+        <StackPanel x:Name="AiTab">
         <Grid Margin="0,16,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -205,6 +379,7 @@
                            FontSize="12"
                            TextWrapping="Wrap" />
             </Border>
+        </StackPanel>
         </StackPanel>
 
         <TextBlock x:Name="SettingsStatusText"

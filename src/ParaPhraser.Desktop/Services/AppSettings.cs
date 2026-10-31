@@ -12,6 +12,27 @@ public sealed class ProviderSettings
 
     /// <summary>Encrypted for this Windows account. The plain key is never written to disk.</summary>
     public string? EncryptedApiKey { get; set; }
+
+    /// <summary>The first choice when this provider's model is busy.</summary>
+    public string? LastWorkingModel { get; set; }
+}
+
+public sealed class ShortcutSettings
+{
+    public string Grammar { get; set; } = "Ctrl+Alt+G";
+
+    public string Rewrite { get; set; } = "Ctrl+Alt+R";
+
+    public string Format { get; set; } = "Ctrl+Alt+F";
+
+    public string Instant { get; set; } = "Ctrl+Alt+E";
+}
+
+public sealed class SavedInstruction
+{
+    public string Name { get; set; } = string.Empty;
+
+    public string Instruction { get; set; } = string.Empty;
 }
 
 public sealed class AppSettings
@@ -30,6 +51,25 @@ public sealed class AppSettings
     public string? OnlineProviderId { get; set; }
 
     public Dictionary<string, ProviderSettings> Providers { get; set; } = [];
+
+    public ShortcutSettings Shortcuts { get; set; } = new();
+
+    /// <summary>What the direct replace shortcut does.</summary>
+    public RewriteMode InstantMode { get; set; } = RewriteMode.Grammar;
+
+    public List<SavedInstruction> SavedInstructions { get; set; } =
+    [
+        new()
+        {
+            Name = "Client email",
+            Instruction = "Rewrite this as a clear, polite email to a client. Keep every name, date, amount, and commitment."
+        },
+        new()
+        {
+            Name = "Slack update",
+            Instruction = "Rewrite this as a short, friendly team update. Keep every name, date, and action."
+        }
+    ];
 
     /// <summary>
     /// A missing or damaged file starts from defaults, so the app always opens.
