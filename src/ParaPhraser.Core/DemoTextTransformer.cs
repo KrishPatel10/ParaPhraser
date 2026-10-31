@@ -9,8 +9,11 @@ namespace ParaPhraser.Core;
 /// </summary>
 public sealed partial class DemoTextTransformer : ITextTransformer
 {
+    public string Label => "Built-in demo";
+
     public Task<RewriteResult> TransformAsync(
         RewriteRequest request,
+        Action<string>? onText = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Text);
@@ -30,6 +33,15 @@ public sealed partial class DemoTextTransformer : ITextTransformer
 
         stopwatch.Stop();
         return Task.FromResult(new RewriteResult(transformed, "Built-in demo", stopwatch.Elapsed));
+    }
+
+    public Task<FormattingResult> SuggestFormattingAsync(
+        string text,
+        string? instruction,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new FormattingResult(new FormattingPlan(), "Built-in demo", TimeSpan.Zero));
     }
 
     private static string FixBasicGrammar(string text)

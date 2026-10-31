@@ -1,4 +1,7 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Forms;
@@ -12,16 +15,20 @@ public partial class App : Application
 {
     private const int GrammarHotkeyId = 1;
     private const int RewriteHotkeyId = 2;
+    private const int FormatHotkeyId = 3;
     private const int OllamaStartupAttempts = 5;
 
     private readonly StartupRegistrationService _startupRegistration = new();
     private Mutex? _singleInstanceMutex;
     private NotifyIcon? _trayIcon;
     private ToolStripMenuItem? _startupMenuItem;
+    private ToolStripMenuItem? _providerMenuItem;
     private GlobalHotkeyService? _hotkeys;
     private OverlayWindow? _overlay;
     private RewriteCoordinator? _coordinator;
-    private OllamaTextTransformer? _ollamaTransformer;
+    private ChatTextTransformer? _transformer;
+    private AppSettings? _settings;
+    private SettingsWindow? _settingsWindow;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -34,16 +41,22 @@ public partial class App : Application
 
         if (!isFirstInstance)
         {
+            // This instance never owned the mutex, so OnExit must not release it.
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
             Shutdown();
             return;
         }
 
         _overlay = new OverlayWindow();
         var selectionService = new ClipboardSelectionService();
-        var configuredModel = Environment.GetEnvironmentVariable("PARAPHRASER_OLLAMA_MODEL");
-        _ollamaTransformer = new OllamaTextTransformer(configuredModel);
-        _coordinator = new RewriteCoordinator(selectionService, _ollamaTransformer, _overlay);
-        _coordinator.LocalAiUnavailable += OnLocalAiUnavailable;
+        var isFirstRun = !File.Exists(AppSettings.DefaultPath);
+        _settings = AppSettings.Load();
+        _transformer = new ChatTextTransformer(_settings.CreateBackend());
+        AppLog.Info($"ParaPhraser started, version {GetType().Assembly.GetName().Version}, using {_transformer.Label}");
+        _coordinator = new RewriteCoordinator(selectionService, _transformer, _overlay);
+        _coordinator.AiUnavailable += OnAiUnavailable;
+        _overlay.SettingsRequested += (_, _) => OpenSettings();
 
         _hotkeys = new GlobalHotkeyService();
         _hotkeys.HotkeyPressed += OnHotkeyPressed;
@@ -51,13 +64,38 @@ public partial class App : Application
         _hotkeys.Register(RewriteHotkeyId, HotkeyModifiers.Control | HotkeyModifiers.Alt, VirtualKey.R);
 
         ConfigureTrayIcon();
-        _ = NotifyOllamaStatusAsync();
+        RegisterFormatHotkey();
+        ShowCurrentProvider();
+        _ = NotifyAiStatusAsync(openSettingsIfNotReady: isFirstRun);
 
         DispatcherUnhandledException += (_, args) =>
         {
+            AppLog.Error("Unhandled error on the UI thread", args.Exception);
             _overlay.ShowError(args.Exception.Message);
             args.Handled = true;
         };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            AppLog.Error("Unhandled error, the app is closing", args.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+            AppLog.Error("Unobserved background task error", args.Exception);
+    }
+
+    // Format is also in the action list, so losing this shortcut to another app
+    // must not stop ParaPhraser from starting.
+    private void RegisterFormatHotkey()
+    {
+        try
+        {
+            _hotkeys?.Register(FormatHotkeyId, HotkeyModifiers.Control | HotkeyModifiers.Alt, VirtualKey.F);
+        }
+        catch (Win32Exception exception)
+        {
+            AppLog.Warn($"Ctrl+Alt+F could not be registered: {exception.Message}");
+            ShowNotification(
+                "Ctrl+Alt+F isn't available",
+                $"{exception.Message} Use Format from the Action list instead.",
+                ToolTipIcon.Warning);
+        }
     }
 
     private async void OnHotkeyPressed(object? sender, int hotkeyId)
@@ -71,6 +109,7 @@ public partial class App : Application
         {
             GrammarHotkeyId => RewriteMode.Grammar,
             RewriteHotkeyId => RewriteMode.Rewrite,
+            FormatHotkeyId => RewriteMode.Format,
             _ => (RewriteMode?)null
         };
 
@@ -85,6 +124,12 @@ public partial class App : Application
         var menu = new ContextMenuStrip();
         menu.Items.Add(new ToolStripMenuItem("Ctrl+Alt+G  Fix grammar") { Enabled = false });
         menu.Items.Add(new ToolStripMenuItem("Ctrl+Alt+R  Rewrite") { Enabled = false });
+        menu.Items.Add(new ToolStripMenuItem("Ctrl+Alt+F  Format") { Enabled = false });
+        menu.Items.Add(new ToolStripSeparator());
+        _providerMenuItem = new ToolStripMenuItem { Enabled = false };
+        menu.Items.Add(_providerMenuItem);
+        menu.Items.Add("Settings…", null, (_, _) => OpenSettings());
+        menu.Items.Add("Open logs folder", null, (_, _) => OpenLogsFolder());
         menu.Items.Add(new ToolStripSeparator());
         _startupMenuItem = new ToolStripMenuItem("Run ParaPhraser at startup")
         {
@@ -102,40 +147,125 @@ public partial class App : Application
             ContextMenuStrip = menu,
             Visible = true
         };
+        _trayIcon.BalloonTipClicked += (_, _) => OpenSettings();
     }
 
-    private async Task NotifyOllamaStatusAsync()
+    private static void OpenLogsFolder()
     {
-        if (_ollamaTransformer is null)
+        var folder = Path.GetDirectoryName(AppLog.FilePath)!;
+        Directory.CreateDirectory(folder);
+        Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+    }
+
+    private void OpenSettings()
+    {
+        if (_settings is null)
         {
             return;
         }
 
-        LocalAiStatus status = new(false, "Ollama is not ready.");
-        for (var attempt = 0; attempt < OllamaStartupAttempts; attempt++)
+        if (_settingsWindow is null)
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            status = await _ollamaTransformer.CheckStatusAsync(timeout.Token);
+            _settingsWindow = new SettingsWindow(_settings, OnSettingsSaved);
+            _settingsWindow.Closed += (_, _) =>
+            {
+                _settingsWindow = null;
+
+                // Hand focus back so the user can press Generate straight away.
+                if (_overlay?.IsVisible == true)
+                {
+                    _overlay.Activate();
+                }
+            };
+            _settingsWindow.Show();
+        }
+
+        // The overlay is always on top, so Settings must be too or it opens behind
+        // it. Only then, because the links it opens would land behind Settings.
+        _settingsWindow.Topmost = _overlay?.IsVisible == true;
+        _settingsWindow.Activate();
+    }
+
+    private void OnSettingsSaved()
+    {
+        if (_settings is null)
+        {
+            return;
+        }
+
+        _transformer = new ChatTextTransformer(_settings.CreateBackend());
+        AppLog.Info($"Settings saved, now using {_transformer.Label}");
+        _coordinator?.UseTransformer(_transformer);
+        ShowCurrentProvider();
+        _ = NotifyAiStatusAsync(openSettingsIfNotReady: false);
+    }
+
+    private void ShowCurrentProvider()
+    {
+        if (_transformer is null)
+        {
+            return;
+        }
+
+        var backend = _transformer.Backend;
+        _overlay?.SetProvider(backend.ProviderName, backend.IsLocal);
+        if (_providerMenuItem is not null)
+        {
+            _providerMenuItem.Text = $"Using {backend.Label}";
+        }
+    }
+
+    private async Task NotifyAiStatusAsync(bool openSettingsIfNotReady)
+    {
+        if (_transformer is null)
+        {
+            return;
+        }
+
+        // Ollama may still be starting with Windows. An online check will not
+        // change by retrying.
+        var backend = _transformer.Backend;
+        var attempts = backend.IsLocal ? OllamaStartupAttempts : 1;
+
+        AiStatus status = new(false, $"{backend.ProviderName} is not ready.");
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(backend.IsLocal ? 3 : 15));
+            status = await backend.CheckStatusAsync(timeout.Token);
             if (status.IsReady)
             {
                 break;
             }
 
-            if (attempt < OllamaStartupAttempts - 1)
+            if (attempt < attempts - 1)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }
         }
 
+        if (status.IsReady)
+        {
+            AppLog.Info($"Status check passed: {status.Message}");
+        }
+        else
+        {
+            AppLog.Warn($"Status check failed: {status.Message}");
+        }
+
         ShowNotification(
-            status.IsReady ? "ParaPhraser is ready" : "Local AI isn't ready",
+            status.IsReady ? "ParaPhraser is ready" : "AI isn't ready",
             status.Message,
             status.IsReady ? ToolTipIcon.Info : ToolTipIcon.Warning);
+
+        if (!status.IsReady && openSettingsIfNotReady)
+        {
+            OpenSettings();
+        }
     }
 
-    private void OnLocalAiUnavailable(object? sender, string message)
+    private void OnAiUnavailable(object? sender, string message)
     {
-        ShowNotification("Local AI isn't ready", message, ToolTipIcon.Warning);
+        ShowNotification("AI isn't ready", message, ToolTipIcon.Warning);
     }
 
     private void ToggleStartupRegistration(object? sender, EventArgs e)
@@ -173,7 +303,7 @@ public partial class App : Application
     {
         if (_coordinator is not null)
         {
-            _coordinator.LocalAiUnavailable -= OnLocalAiUnavailable;
+            _coordinator.AiUnavailable -= OnAiUnavailable;
         }
 
         if (_hotkeys is not null)
