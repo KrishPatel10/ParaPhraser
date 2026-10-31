@@ -50,3 +50,15 @@ if ('IntersectionObserver' in window) {
 } else {
   reveals.forEach(item => item.classList.add('in'));
 }
+
+// The installer's name includes its version, so ask GitHub for the newest one.
+// Without this, the buttons still reach the latest release page.
+fetch('https://api.github.com/repos/KrishPatel10/ParaPhraser/releases/latest')
+  .then(response => response.ok ? response.json() : null)
+  .then(release => {
+    const setup = release?.assets.find(asset => /-Setup-.*\.exe$/.test(asset.name));
+    if (setup) {
+      document.querySelectorAll('[data-download]').forEach(link => { link.href = setup.browser_download_url; });
+    }
+  })
+  .catch(() => {});
