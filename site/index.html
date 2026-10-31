@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ParaPhraser: rewrite text in any Windows app</title>
+<meta name="description" content="Select text in any Windows app, press a shortcut, and review a better version beside your original. Free, open source, and able to run offline.">
+<meta name="theme-color" content="#6D45E6">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=roundo@400,500,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+<svg width="0" height="0" class="defs" aria-hidden="true">
+  <symbol id="nib" viewBox="0 0 64 64"><path fill-rule="evenodd" d="M8 4H34A22 22 0 0 1 34 48H27L17.5 63L8 48ZM21 16H33A10 10 0 0 1 33 36H21ZM21 36H25L18 62H17Z"/></symbol>
+</svg>
+
+<header class="bar">
+  <a class="wordmark" href="#top"><svg aria-hidden="true"><use href="#nib"/></svg>ParaPhraser</a>
+  <nav aria-label="Main">
+    <a href="#try">Try it</a>
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#questions">Questions</a>
+  </nav>
+  <a class="bar-action" href="#download">Download</a>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <svg class="hero-shape" aria-hidden="true"><use href="#nib"/></svg>
+    <div class="hero-copy">
+      <h1>Rewrite text in any Windows app</h1>
+      <p class="lead">Select text, press Ctrl+Alt+R, and read a better version beside your original before anything changes.</p>
+      <a class="button" href="https://github.com/KrishPatel10/ParaPhraser/releases/latest/download/KrishPatel.ParaPhraser-win-Setup.exe">Download for Windows</a>
+      <p class="note">Free and open source. Windows 10 or 11, 64-bit. 85 MB.</p>
+    </div>
+    <div class="hero-picture" data-ui role="img" aria-label="The ParaPhraser window showing an original sentence above a more polished suggestion, with Copy and Replace buttons.">
+      <div class="win">
+        <div class="win-head"><span>Rewrite</span><span class="pill">Offline</span></div>
+        <div class="paper"><b>Original</b>hey can u send me the report by friday, i need it for the client meeting</div>
+        <div class="paper"><b>Suggestion</b>Could you send me the report by Friday? I need it for the client meeting.</div>
+        <div class="win-actions"><span class="ghost">Show changes</span><span class="ghost">Copy</span><span class="solid">Replace</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="try" id="try" data-mode="rewrite">
+    <div class="try-copy reveal">
+      <h2><span id="try-word">Rewrite</span> this sentence</h2>
+      <p>Each action does one job. Choose one to see the difference on this example.</p>
+    </div>
+    <div class="try-control reveal" data-ui>
+      <div class="segments" role="group" aria-label="Choose what ParaPhraser does">
+        <button type="button" data-mode="grammar" aria-pressed="false">Fix grammar</button>
+        <button type="button" data-mode="rewrite" aria-pressed="true">Rewrite</button>
+        <button type="button" data-mode="shorten" aria-pressed="false">Shorten</button>
+        <button type="button" data-mode="format" aria-pressed="false">Format</button>
+      </div>
+      <div class="try-result" aria-live="polite">
+        <div class="paper quiet"><b>You wrote</b>hey can u send me the report by friday, i need it for the client meeting</div>
+        <div class="paper"><b id="try-label">Suggestion</b><span id="try-output">Could you send me the report by Friday? I need it for the client meeting.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how" id="how">
+    <article class="step reveal">
+      <h2>How it works</h2>
+      <div class="card" data-ui><span class="card-app">Teams</span><p><mark>hey can u send me the report by friday</mark></p></div>
+      <p class="clause">First, select text in any app.</p>
+    </article>
+    <article class="step reveal">
+      <div class="card" data-ui><span class="card-app">Teams</span><p><mark>hey can u send me the report by friday</mark></p><div class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>R</kbd></div></div>
+      <p class="clause">Then press the shortcut.</p>
+    </article>
+    <article class="step reveal">
+      <div class="card" data-ui><span class="card-app">ParaPhraser</span><p><del>hey can u</del> <ins>Could you</ins> send me the report by <del>friday</del> <ins>Friday?</ins></p><div class="keys"><span class="ok">Friday kept</span></div></div>
+      <p class="clause">Read what changed beside your words.</p>
+    </article>
+    <article class="step reveal">
+      <div class="card" data-ui><span class="card-app">Teams</span><p>Could you send me the report by Friday?</p><div class="keys"><span class="ok">Replaced</span><span class="undo">Undo</span></div></div>
+      <p class="clause">Replace it, or close the window.</p>
+    </article>
+  </section>
+
+  <section class="features" id="features">
+    <div class="features-copy reveal">
+      <h2>You stay in charge</h2>
+      <p>ParaPhraser suggests. Nothing replaces your text unless you choose it, and your words go only where you send them.</p>
+      <img class="shot" src="settings.png" width="588" height="503" loading="lazy" alt="ParaPhraser Settings, with Offline selected and the local gemma3:4b model ready.">
+    </div>
+    <div class="tiles">
+      <figure class="reveal">
+        <div class="tile t1"><div class="spec" data-ui><span class="row"><i class="dot"></i>Local AI is ready</span><span class="sub">gemma3:4b through Ollama</span></div></div>
+        <figcaption><strong>Works offline</strong>With Ollama, your text stays on this computer.</figcaption>
+      </figure>
+      <figure class="reveal wide">
+        <div class="tile t2"><div class="spec spec-wide" data-ui><span class="sub">Online provider</span><span class="choice on">Anthropic Claude</span><span class="choice">OpenAI</span><span class="choice">Google Gemini</span><span class="choice">OpenRouter</span></div></div>
+        <figcaption><strong>Or use your own API key</strong>Keys are encrypted for your Windows account, and there is nothing to subscribe to here.</figcaption>
+      </figure>
+      <figure class="reveal">
+        <div class="tile t3"><div class="spec" data-ui><span class="row warn">Check this detail</span><span class="sub">"$4,200" may be missing from the suggestion.</span></div></div>
+        <figcaption><strong>Catches dropped details</strong>Numbers, dates, names, and links are checked.</figcaption>
+      </figure>
+      <figure class="reveal">
+        <div class="tile t2"><div class="spec" data-ui><span class="row">Password</span><span class="sub dots">••••••••••</span><span class="sub">ParaPhraser won't read this field.</span></div></div>
+        <figcaption><strong>Skips password fields</strong>It refuses fields Windows reports as passwords.</figcaption>
+      </figure>
+      <figure class="reveal">
+        <div class="tile t3"><div class="spec" data-ui><span class="sub">Format keeps every word</span><span class="row">Pay by <strong>Friday</strong>, or <span class="red">the order lapses</span>.</span></div></div>
+        <figcaption><strong>Formats without rewriting</strong>Bold, color, and highlight, with your words intact.</figcaption>
+      </figure>
+      <figure class="reveal wide">
+        <div class="tile t1"><div class="spec spec-wide" data-ui><span class="sub">Saved</span><span class="choice on">Client email</span><span class="choice">Status update</span><span class="choice">Friendly reply</span></div></div>
+        <figcaption><strong>Remembers how you write</strong>Save instructions and reuse them in one click.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="faq" id="questions">
+    <h2 class="reveal">Fair questions</h2>
+    <div class="drawer">
+      <details name="faq" open style="--i:0">
+        <summary><span class="tab">Warning</span><span class="q">Why does Windows warn me about the installer?</span></summary>
+        <p>The installer isn't code-signed yet, so Windows shows "Windows protected your PC". Choose More info, then Run anyway. The <a href="https://github.com/KrishPatel10/ParaPhraser">source code</a> is public if you'd like to read it or build it yourself.</p>
+      </details>
+      <details name="faq" style="--i:1">
+        <summary><span class="tab">Privacy</span><span class="q">Where does my text go?</span></summary>
+        <p>In offline mode, it stays on your computer. In online mode, the selected text and your instruction go to the provider you chose. ParaPhraser keeps no history, and its logs never contain your text or keys.</p>
+      </details>
+      <details name="faq" style="--i:2">
+        <summary><span class="tab">Cost</span><span class="q">Is it really free?</span></summary>
+        <p>Yes. ParaPhraser is open source under the MIT licence and needs no account. Offline mode costs nothing. In online mode, your provider's own pricing applies to your key.</p>
+      </details>
+      <details name="faq" style="--i:3">
+        <summary><span class="tab">Apps</span><span class="q">Which apps does it work in?</span></summary>
+        <p>Most apps where you can copy and paste, such as Notepad, Word, Outlook, Teams, and browsers. Windows blocks it from typing into apps running as administrator, and rich formatting depends on what the app supports.</p>
+      </details>
+      <details name="faq" style="--i:4">
+        <summary><span class="tab">Setup</span><span class="q">Do I need anything else?</span></summary>
+        <p>Yes, one of two things: <a href="https://ollama.com/">Ollama</a> for offline mode, or an API key from Anthropic, OpenAI, Google, or OpenRouter. Settings opens on first launch and walks you through it, and can download the offline model for you.</p>
+      </details>
+      <details name="faq" style="--i:5">
+        <summary><span class="tab">Updates</span><span class="q">How do updates work?</span></summary>
+        <p>ParaPhraser checks GitHub when it starts, even in offline mode, and downloads new versions in the background. That check contains none of your text, and it won't restart until you choose to. Uninstall it from Windows Settings at any time.</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="close" id="download">
+    <div class="close-copy reveal">
+      <h2>Get ParaPhraser</h2>
+      <p>The installer needs no admin rights. When it finishes, Settings opens so you can choose how it writes.</p>
+    </div>
+    <div class="dialog reveal" data-ui>
+      <h3>How should it write?</h3>
+      <div class="segments small" role="group" aria-label="Choose how ParaPhraser writes">
+        <button type="button" data-how="offline" aria-pressed="true">Offline</button>
+        <button type="button" data-how="online" aria-pressed="false">Online</button>
+      </div>
+      <p id="how-note">You'll also need Ollama. It's free, and Settings links to it.</p>
+      <a class="button full" href="https://github.com/KrishPatel10/ParaPhraser/releases/latest/download/KrishPatel.ParaPhraser-win-Setup.exe">Download for Windows</a>
+    </div>
+  </section>
+</main>
+
+<footer class="end">
+  <p class="end-name">ParaPhraser</p>
+  <nav aria-label="Project">
+    <a href="https://github.com/KrishPatel10/ParaPhraser">Source on GitHub</a>
+    <a href="https://github.com/KrishPatel10/ParaPhraser/releases">All releases</a>
+    <a href="https://github.com/KrishPatel10/ParaPhraser/blob/main/LICENSE">MIT licence</a>
+  </nav>
+</footer>
+<script src="site.js"></script>
+</body>
+</html>
