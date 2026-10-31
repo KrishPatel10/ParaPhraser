@@ -46,6 +46,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <Border Width="42"
@@ -98,10 +99,26 @@
                         </StackPanel>
                     </Border>
 
-                    <Button Grid.Column="3"
+                    <Button x:Name="SettingsButton"
+                            Grid.Column="3"
+                            Width="32"
+                            Height="32"
+                            Margin="0,0,8,0"
+                            Padding="0"
+                            AutomationProperties.Name="Settings"
+                            Content="&#xE713;"
+                            FontFamily="Segoe MDL2 Assets"
+                            FontSize="14"
+                            FontWeight="Normal"
+                            ToolTip="Settings: change the provider or model"
+                            Click="SettingsButton_Click"
+                            Style="{StaticResource OverlayButtonStyle}" />
+
+                    <Button Grid.Column="4"
                             Width="32"
                             Height="32"
                             Padding="0"
+                            AutomationProperties.Name="Close"
                             Content="×"
                             ToolTip="Close"
                             Click="CloseButton_Click"

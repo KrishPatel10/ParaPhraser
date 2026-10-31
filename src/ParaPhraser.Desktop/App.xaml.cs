@@ -56,6 +56,7 @@ public partial class App : Application
         AppLog.Info($"ParaPhraser started, version {GetType().Assembly.GetName().Version}, using {_transformer.Label}");
         _coordinator = new RewriteCoordinator(selectionService, _transformer, _overlay);
         _coordinator.AiUnavailable += OnAiUnavailable;
+        _overlay.SettingsRequested += (_, _) => OpenSettings();
 
         _hotkeys = new GlobalHotkeyService();
         _hotkeys.HotkeyPressed += OnHotkeyPressed;
@@ -166,10 +167,22 @@ public partial class App : Application
         if (_settingsWindow is null)
         {
             _settingsWindow = new SettingsWindow(_settings, OnSettingsSaved);
-            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+            _settingsWindow.Closed += (_, _) =>
+            {
+                _settingsWindow = null;
+
+                // Hand focus back so the user can press Generate straight away.
+                if (_overlay?.IsVisible == true)
+                {
+                    _overlay.Activate();
+                }
+            };
             _settingsWindow.Show();
         }
 
+        // The overlay is always on top, so Settings must be too or it opens behind
+        // it. Only then, because the links it opens would land behind Settings.
+        _settingsWindow.Topmost = _overlay?.IsVisible == true;
         _settingsWindow.Activate();
     }
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using ParaPhraser.Core;
 using ParaPhraser.Desktop.Services;
 
@@ -36,6 +37,19 @@ public partial class SettingsWindow : Window
         OnlinePanel.Visibility = isOnline ? Visibility.Visible : Visibility.Collapsed;
         OfflinePanel.Visibility = isOnline ? Visibility.Collapsed : Visibility.Visible;
         SettingsStatusText.Text = string.Empty;
+        _ = LoadSavedKeyModelsAsync();
+    }
+
+    /// <summary>
+    /// Someone here to escape an overloaded model should see their choices at
+    /// once, without pressing Load models first.
+    /// </summary>
+    private async Task LoadSavedKeyModelsAsync()
+    {
+        if (OnlineMode.IsChecked == true && _settings.HasApiKey(SelectedProvider.Id))
+        {
+            await LoadModelsAsync();
+        }
     }
 
     private void ProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -47,6 +61,7 @@ public partial class SettingsWindow : Window
             $"Your selected text and instruction are sent to {SelectedProvider.Name}, whose terms and pricing apply. "
             + "App names and window titles are not sent. Your key is encrypted for your Windows account.";
         UpdateKeyState();
+        _ = LoadSavedKeyModelsAsync();
     }
 
     private void UpdateKeyState()
@@ -133,8 +148,11 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async void LoadModelsButton_Click(object sender, RoutedEventArgs e)
+    private async void LoadModelsButton_Click(object sender, RoutedEventArgs e) => await LoadModelsAsync();
+
+    private async Task LoadModelsAsync()
     {
+        var provider = SelectedProvider;
         var apiKey = GetEnteredApiKey();
         if (apiKey is null)
         {
@@ -144,11 +162,18 @@ public partial class SettingsWindow : Window
         }
 
         LoadModelsButton.IsEnabled = false;
-        SettingsStatusText.Text = $"Loading models from {SelectedProvider.Name}…";
+        SettingsStatusText.Text = $"Loading models from {provider.Name}…";
 
         try
         {
-            var models = await SelectedProvider.CreateBackend(apiKey, string.Empty).ListModelsAsync();
+            var models = await provider.CreateBackend(apiKey, string.Empty).ListModelsAsync();
+
+            // The user may have picked another provider while this was loading.
+            if (provider != SelectedProvider)
+            {
+                return;
+            }
+
             var typedModel = OnlineModelComboBox.Text;
             OnlineModelComboBox.ItemsSource = models;
             OnlineModelComboBox.Text = typedModel;
@@ -235,6 +260,14 @@ public partial class SettingsWindow : Window
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ButtonState == MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
+    }
 
     protected override void OnClosed(EventArgs e)
     {

@@ -44,6 +44,8 @@ public partial class OverlayWindow : Window
     private Action? _stopGeneration;
     private bool _hasPartialText;
 
+    public event EventHandler? SettingsRequested;
+
     public OverlayWindow()
     {
         InitializeComponent();
@@ -149,7 +151,15 @@ public partial class OverlayWindow : Window
         PrivacyText.Text = isLocal
             ? "Private processing · No history stored"
             : $"Sent to {providerName} · No history stored here";
+
+        if (IsVisible && _stopGeneration is null)
+        {
+            StatusText.Text = "Settings updated. Press Generate to try again.";
+        }
     }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e) =>
+        SettingsRequested?.Invoke(this, EventArgs.Empty);
 
     public void ShowComposer(
         RewriteMode mode,

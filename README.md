@@ -33,8 +33,8 @@ This starter implements the complete Windows interaction loop:
   words and keep existing formatting, but add none of their own.
 - Provider-independent `ITextTransformer` abstraction.
 
-ParaPhraser does not store conversation history. Right-click the tray icon and
-choose **Settings** to pick how it writes:
+ParaPhraser does not store conversation history. Choose the gear in the overlay,
+or right-click the tray icon and choose **Settings**, to pick how it writes:
 
 - **Offline** uses Ollama on this computer. Selected text, the application name,
   the window title, and the instruction stay on this computer. Settings links to
