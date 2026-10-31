@@ -32,6 +32,15 @@ public sealed partial class DemoTextTransformer : ITextTransformer
         return Task.FromResult(new RewriteResult(transformed, "Built-in demo", stopwatch.Elapsed));
     }
 
+    public Task<FormattingResult> SuggestFormattingAsync(
+        string text,
+        string? instruction,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new FormattingResult(new FormattingPlan(), "Built-in demo", TimeSpan.Zero));
+    }
+
     private static string FixBasicGrammar(string text)
     {
         var result = LowercaseStandaloneIRegex().Replace(text, "I");

@@ -398,13 +398,17 @@ commit.</p>
 <p>ParaPhraser is a Windows tray application with no normal main window.
 It waits in the background for a global keyboard shortcut, copies the
 text currently selected in another application, opens a WPF overlay near
-the mouse, sends an instruction and context to a local Ollama model, and
-lets the user copy or paste the result back into the original
-application.</p>
-<p>The default local model is <code>gemma3:4b</code>. The API stays on
-the local machine at <code>http://127.0.0.1:11434</code>; the
-application contains no cloud AI client and stores no rewrite
-history.</p>
+the mouse, sends an instruction and context to the provider chosen in
+Settings, and lets the user copy or paste the result back into the
+original application.</p>
+<p>Offline mode is the default and uses Ollama. Its default model is
+<code>gemma3:4b</code>, and its API stays on the local machine at
+<code>http://127.0.0.1:11434</code>. Online mode sends the selected text
+to the provider chosen in Settings, using the API key saved there.
+<code>ChatTextTransformer</code> holds the prompts, and the HTTP calls
+live in <code>OllamaBackend</code>, <code>AnthropicBackend</code>, and
+<code>OpenAiCompatibleBackend</code>. The application stores no rewrite
+history either way.</p>
 <p>Current user flow:</p>
 <ol type="1">
 <li>ParaPhraser starts, creates a tray icon, registers two Windows-wide
@@ -446,7 +450,7 @@ RewriteCoordinator -- owns the complete operation
         +--&gt; OverlayWindow -- edit context/options and click Generate
                  |
                  v
-        OllamaTextTransformer -- POST /api/chat to gemma3:4b
+        ChatTextTransformer -- POST /api/chat to gemma3:4b
                  |
                  v
         OverlayWindow -- review result
@@ -482,9 +486,9 @@ for a hotkey-registration problem.</p>
 |   |   |-- RewriteTone.cs               Original/Polite/Professional/Casual/Emojified
 |   |   |-- WritingLanguage.cs            Source-language classification
 |   |   |-- WritingLanguageResolver.cs    Lightweight source/output detection
-|   |   |-- OllamaTextTransformer.cs      Local AI readiness, prompts, API calls
-|   |   |-- LocalAiStatus.cs              Ready flag and human-readable message
-|   |   |-- LocalAiUnavailableException.cs Expected local-AI outage error
+|   |   |-- ChatTextTransformer.cs      Local AI readiness, prompts, API calls
+|   |   |-- AiStatus.cs              Ready flag and human-readable message
+|   |   |-- AiUnavailableException.cs Expected local-AI outage error
 |   |   `-- DemoTextTransformer.cs        Deterministic smoke-test transformer
 |   `-- ParaPhraser.Desktop/             WPF/WinForms Windows shell
 |       |-- App.xaml                      Global colors and control templates
@@ -575,14 +579,14 @@ immediately. This is the single-instance guard.</li>
 <li>Creates <code>OverlayWindow</code>.</li>
 <li>Creates <code>ClipboardSelectionService</code>.</li>
 <li>reads <code>PARAPHRASER_OLLAMA_MODEL</code>; if blank,
-<code>OllamaTextTransformer</code> uses <code>gemma3:4b</code>.</li>
+<code>ChatTextTransformer</code> uses <code>gemma3:4b</code>.</li>
 <li>Creates <code>RewriteCoordinator</code> and connects its
 local-AI-unavailable event.</li>
 <li>Creates <code>GlobalHotkeyService</code>.</li>
 <li>Registers hotkey ID 1 as <code>Ctrl+Alt+G</code> and ID 2 as
 <code>Ctrl+Alt+R</code>.</li>
 <li>Creates the WinForms tray icon and menu.</li>
-<li>Starts <code>NotifyOllamaStatusAsync</code> without blocking
+<li>Starts <code>NotifyAiStatusAsync</code> without blocking
 startup.</li>
 <li>Registers a WPF dispatcher exception handler that displays unhandled
 UI errors in the overlay.</li>
@@ -647,8 +651,9 @@ checks up to 40 times at 15 ms intervals.</li>
 replacement target.</li>
 <li>Gets the target process name and window title. These are prompt
 context, not surrounding document text.</li>
-<li>Captures every available clipboard format with
-<code>ClipboardSnapshot</code>.</li>
+<li>Copies the clipboard's formats with
+<code>ClipboardSnapshot</code>, skipping slow Office formats that repeat
+content held in other formats.</li>
 <li>Records <code>GetClipboardSequenceNumber</code>.</li>
 <li>Uses <code>SendInput</code> to send Ctrl+C.</li>
 <li>Polls the sequence number up to 20 times at 20 ms intervals, for
@@ -698,7 +703,7 @@ the custom ComboBox popup/template.</p>
 <p><code>OverlayWindow.ShowComposer</code> resets the screen for every
 fresh shortcut:</p>
 <ul>
-<li>Copies the captured selection into editable
+<li>Copies the captured selection, with its formatting, into editable
 <code>OriginalText</code>.</li>
 <li>Copies the default instruction into editable
 <code>InstructionText</code>.</li>
@@ -791,15 +796,15 @@ to reactivate.</p>
 is the provider boundary: replacing Ollama with another local engine
 should require a new transformer implementation, not changes to
 clipboard/UI code.</p>
-<p><code>LocalAiUnavailableException</code> is treated specially: its
-text appears in the overlay and fires <code>LocalAiUnavailable</code>,
+<p><code>AiUnavailableException</code> is treated specially: its
+text appears in the overlay and fires <code>AiUnavailable</code>,
 which produces a warning balloon. Other exceptions appear only in the
 overlay.</p>
 </section>
 </section>
 <section id="10-ollama-request-contract" class="level2">
 <h2>10. Ollama request contract</h2>
-<p><code>OllamaTextTransformer</code> owns all local-model behavior.</p>
+<p><code>ChatTextTransformer</code> owns all local-model behavior.</p>
 <section id="endpoint-and-timeout" class="level3">
 <h3>Endpoint and timeout</h3>
 <ul>
@@ -973,8 +978,9 @@ secondary restore failure must not make a successful replacement look
 unsuccessful.</p>
 <p>Common limitations:</p>
 <ul>
-<li>Replacement is plain Unicode text, so rich formatting can be
-lost.</li>
+<li>Formatted replacement needs a target that reads clipboard HTML.
+Fonts are reduced to one per replacement, and tables, images, and nested
+list levels are not kept.</li>
 <li>The original selection can disappear when another window gains
 focus. Many editors preserve it, some do not.</li>
 <li>Windows User Interface Privilege Isolation blocks a normal process
@@ -1165,7 +1171,7 @@ exits immediately.</p>
 </tr>
 <tr>
 <td>Ollama call</td>
-<td><code>OllamaTextTransformer.TransformAsync</code></td>
+<td><code>ChatTextTransformer.TransformAsync</code></td>
 <td><code>_model</code>, payload, response status</td>
 </tr>
 <tr>
@@ -1190,7 +1196,7 @@ enable break-on-thrown temporarily for:</p>
 <ul>
 <li><code>System.ComponentModel.Win32Exception</code></li>
 <li><code>System.Runtime.InteropServices.COMException</code></li>
-<li><code>ParaPhraser.Core.LocalAiUnavailableException</code></li>
+<li><code>ParaPhraser.Core.AiUnavailableException</code></li>
 <li><code>System.InvalidOperationException</code></li>
 </ul>
 <p>The application catches several of these to show friendly UI.
@@ -1460,7 +1466,7 @@ Windows locks loaded files. Exit it first.</p>
 <ol type="1">
 <li>Add a member to <code>RewriteMode</code> if it is truly new.</li>
 <li>Add/update default instructions in <code>RewriteCoordinator</code>
-and <code>OllamaTextTransformer</code>.</li>
+and <code>ChatTextTransformer</code>.</li>
 <li>Add the ComboBox item in <code>OverlayWindow.xaml</code>.</li>
 <li>Update both action index mappings in
 <code>OverlayWindow.xaml.cs</code>.</li>
@@ -1512,7 +1518,7 @@ Automation around the focused control.</li>
 <p>Implement <code>ITextTransformer</code>. Keep
 endpoint/prompt/deserialization/provider errors inside that
 implementation. Construct it in <code>App.OnStartup</code>. Preserve
-<code>LocalAiUnavailableException</code> semantics if you want existing
+<code>AiUnavailableException</code> semantics if you want existing
 overlay/tray warnings to work.</p>
 </section>
 </section>

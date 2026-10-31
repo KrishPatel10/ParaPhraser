@@ -11,6 +11,7 @@ This starter implements the complete Windows interaction loop:
 - System tray process with single-instance protection.
 - `Ctrl+Alt+G` for grammar correction.
 - `Ctrl+Alt+R` for rewriting.
+- `Ctrl+Alt+F` for formatting without changing a word.
 - Clipboard-preserving selection capture.
 - Minimal result overlay with Copy, Replace, Enter, and Escape actions.
 - One unified writing-tools screen with editable context, Fix grammar, Rewrite,
@@ -20,26 +21,38 @@ This starter implements the complete Windows interaction loop:
   English input stays English, while Hindi, Hinglish, and other non-English
   input is translated into natural English.
 - Focus restoration and in-place paste.
+- Rich text support: bold, italic, underline, text color, highlight, links,
+  headings, and bullet or numbered lists survive capture, the model, and paste
+  in apps that copy HTML. The target app decides which of these it supports.
+  The suggestion is editable, with Ctrl+B, Ctrl+I, Ctrl+U, and a format toolbar
+  that includes a color and highlight picker.
+- Format mode: adds bold, italic, underline, red text, and highlight where they
+  help, and never changes a word. Rewrite, Shorten, and Fix grammar change the
+  words and keep existing formatting, but add none of their own.
 - Provider-independent `ITextTransformer` abstraction.
 
-The desktop app uses Ollama on the local computer. Selected text, the active
-application name, the active window title, and the one-off instruction are sent
-only to the local Ollama endpoint. ParaPhraser does not store conversation
-history.
+ParaPhraser does not store conversation history. Right-click the tray icon and
+choose **Settings** to pick how it writes:
+
+- **Offline** uses Ollama on this computer. Selected text, the application name,
+  the window title, and the instruction stay on this computer. Settings links to
+  the Ollama installer and can download the model for you.
+- **Online** uses your own API key with Anthropic Claude, OpenAI, Google Gemini,
+  or OpenRouter. Selected text and the instruction go to that provider, whose
+  terms and pricing apply. Application names and window titles are not sent.
+  Keys are encrypted for your Windows account with DPAPI and stored in
+  `%APPDATA%\ParaPhraser\settings.json`.
 
 ## Prerequisites
 
 - Windows 10 or Windows 11.
 - Visual Studio 2026 with the **.NET desktop development** workload, or the
   .NET 10 SDK.
-- [Ollama](https://ollama.com/) with the default local model installed:
+- For offline mode, [Ollama](https://ollama.com/). For online mode, an API key
+  from a supported provider.
 
-```powershell
-ollama pull gemma3:4b
-```
-
-Set `PARAPHRASER_OLLAMA_MODEL` before starting the app to use another installed
-Ollama model.
+`PARAPHRASER_OLLAMA_MODEL` still sets the Ollama model when none is saved in
+Settings.
 
 ## Build and run
 
@@ -55,17 +68,17 @@ Then:
 
 1. Open Notepad, Teams, Outlook, or a browser text field.
 2. Type and select some text.
-3. Press `Ctrl+Alt+G` or `Ctrl+Alt+R`.
+3. Press `Ctrl+Alt+G`, `Ctrl+Alt+R`, or `Ctrl+Alt+F`.
 4. Choose Fix grammar, Rewrite, or Shorten on the same screen.
 5. Edit the one-off instruction and select **Generate** or press `Ctrl+Enter`.
 6. Optionally choose a tone: Original, Polite, Professional, Casual, or Emojified.
    Output is always English, regardless of the input language.
 7. Review the suggestion and choose **Copy** or **Replace**.
-8. Right-click the tray icon to toggle **Run ParaPhraser at startup** or exit.
+8. Right-click the tray icon to open **Settings**, toggle
+   **Run ParaPhraser at startup**, or exit.
 
-ParaPhraser checks Ollama when it starts and shows a tray notification when the
-local model is ready. It also shows a warning notification if Generate cannot
-reach Ollama or the configured model is missing.
+ParaPhraser checks the chosen provider when it starts and shows a tray
+notification. Click a warning to open Settings.
 
 Start testing in Notepad. Rich editors such as Teams and Outlook will be added
 to the compatibility matrix after the basic flow is confirmed.
@@ -81,11 +94,20 @@ be created only after shortcut, startup, signing, and update behavior are stable
 
 ## Known MVP limitations
 
-- Ollama and the configured model must be installed and running locally.
+- Offline mode needs Ollama running with the chosen model installed.
+- Online mode has not yet been run with a real API key. Requests and errors were
+  tested against fake servers and against each provider with an invalid key.
 - Context is currently limited to the selection, application name, and window
   title. Surrounding text through UI Automation is a later compatibility slice.
 - Shortcuts are currently fixed.
-- Replacement is plain text; rich formatting may be lost.
+- Rich replacement uses one font for the whole result. Tables and images are
+  not kept, nested lists are flattened, and apps that only copy RTF stay plain
+  text.
+- The local model can drop or change formatting, so check the suggestion before
+  replacing it. Colors return automatically only on words that survive the
+  rewrite unchanged. Use the picker for the rest.
+- Black, white, and near-grey text or highlights count as the app's default, so
+  deliberate grey is not kept.
 - Windows blocks simulated input into applications running at a higher
   integrity level, such as an administrator-elevated editor.
 - Clipboard capture is a compatibility fallback. UI Automation capture will be

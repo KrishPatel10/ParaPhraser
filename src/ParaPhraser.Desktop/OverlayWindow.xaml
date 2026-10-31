@@ -35,10 +35,12 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0">
+                <Grid Grid.Row="0"
+                      Background="Transparent"
+                      Cursor="SizeAll"
+                      MouseLeftButtonDown="Header_MouseLeftButtonDown">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -108,7 +110,7 @@
 
                 <StackPanel Grid.Row="1" Margin="0,21,0,0">
                     <Grid Margin="1,0,1,8">
-                        <TextBlock Text="SELECTED CONTEXT"
+                        <TextBlock Text="SELECTED TEXT"
                                    Style="{StaticResource SectionLabelStyle}" />
                         <Border HorizontalAlignment="Right"
                                 Padding="8,3"
@@ -121,107 +123,128 @@
                         </Border>
                     </Grid>
 
-                    <Border Padding="13,11"
-                            Background="{StaticResource OverlaySurfaceBrush}"
-                            BorderBrush="{StaticResource OverlayBorderBrush}"
-                            BorderThickness="1"
+                    <Border Padding="16,12"
+                            Background="{StaticResource OverlayPaperBrush}"
                             CornerRadius="11">
-                        <TextBox x:Name="OriginalText"
-                                 MinHeight="46"
-                                 MaxHeight="112"
-                                 AcceptsReturn="True"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Foreground="{StaticResource OverlayTextBrush}"
-                                 CaretBrush="{StaticResource OverlayAccentBrush}"
-                                 SelectionBrush="#807C64C8"
-                                 FontSize="13"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto" />
+                        <RichTextBox x:Name="OriginalText"
+                                     AutomationProperties.Name="Selected text"
+                                     MinHeight="46"
+                                     MaxHeight="112"
+                                     Style="{StaticResource PaperEditorStyle}" />
                     </Border>
                 </StackPanel>
 
-                <StackPanel Grid.Row="2" Margin="0,17,0,0">
-                    <Grid Margin="1,0,1,8">
-                        <TextBlock Text="YOUR INSTRUCTION"
-                                   Style="{StaticResource SectionLabelStyle}" />
-                        <TextBlock HorizontalAlignment="Right"
-                                   Text="CTRL + ENTER TO GENERATE"
-                                   Foreground="{StaticResource OverlayMutedTextBrush}"
-                                   FontSize="9"
-                                   FontWeight="SemiBold" />
-                    </Grid>
+                <Border Grid.Row="2"
+                        Margin="0,16,0,0"
+                        Padding="16,12,16,16"
+                        Style="{StaticResource ComposerBorderStyle}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0"
+                                           Text="✦"
+                                           Foreground="{StaticResource OverlayAccentBrush}"
+                                           FontSize="13" />
+                                <TextBlock Text="Ask ParaPhraser"
+                                           Foreground="{StaticResource OverlayTextBrush}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                            <TextBlock HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Text="Ctrl + Enter to generate"
+                                       Foreground="{StaticResource OverlayMutedTextBrush}"
+                                       FontSize="11" />
+                        </Grid>
 
-                    <Border Padding="13,10"
-                            Background="{StaticResource OverlaySurfaceBrush}"
-                            BorderBrush="{StaticResource OverlayBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="11">
-                        <TextBox x:Name="InstructionText"
-                                 MinHeight="48"
-                                 MaxHeight="100"
-                                 AcceptsReturn="True"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Foreground="{StaticResource OverlayTextBrush}"
-                                 CaretBrush="{StaticResource OverlayAccentBrush}"
-                                 SelectionBrush="#807C64C8"
-                                 FontSize="13"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto" />
-                    </Border>
-                </StackPanel>
+                        <Grid>
+                            <TextBox x:Name="InstructionText"
+                                     AutomationProperties.Name="Instruction"
+                                     MinHeight="48"
+                                     MaxHeight="100"
+                                     AcceptsReturn="True"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Foreground="{StaticResource OverlayTextBrush}"
+                                     CaretBrush="{StaticResource OverlayAccentBrush}"
+                                     SelectionBrush="#807C64C8"
+                                     FontSize="14"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto" />
+                            <TextBlock Margin="2,0,0,0"
+                                       IsHitTestVisible="False"
+                                       Text="Tell ParaPhraser what to change…"
+                                       Foreground="{StaticResource OverlayMutedTextBrush}"
+                                       FontSize="14">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=InstructionText}"
+                                                         Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
 
-                <Grid Grid.Row="3" Margin="0,18,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="16" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Margin="1,0,0,7"
-                                   Text="ACTION"
-                                   Style="{StaticResource SectionLabelStyle}" />
-                        <ComboBox x:Name="ActionComboBox"
-                                  Height="40"
-                                  SelectionChanged="ActionComboBox_SelectionChanged"
-                                  Style="{StaticResource ModernComboBoxStyle}">
-                            <ComboBoxItem Content="Fix grammar" />
-                            <ComboBoxItem Content="Rewrite" />
-                            <ComboBoxItem Content="Shorten" />
-                        </ComboBox>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Margin="1,0,0,8"
+                                           Text="ACTION"
+                                           Style="{StaticResource SectionLabelStyle}" />
+                                <ComboBox x:Name="ActionComboBox"
+                                          AutomationProperties.Name="Action"
+                                          Height="40"
+                                          SelectionChanged="ActionComboBox_SelectionChanged"
+                                          Style="{StaticResource ModernComboBoxStyle}">
+                                    <ComboBoxItem Content="Fix grammar" />
+                                    <ComboBoxItem Content="Rewrite" />
+                                    <ComboBoxItem Content="Shorten" />
+                                    <ComboBoxItem Content="Format" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Margin="1,0,0,8"
+                                           Text="TONE"
+                                           Style="{StaticResource SectionLabelStyle}" />
+                                <ComboBox x:Name="ToneComboBox"
+                                          AutomationProperties.Name="Tone"
+                                          Height="40"
+                                          SelectedIndex="0"
+                                          Style="{StaticResource ModernComboBoxStyle}">
+                                    <ComboBoxItem Content="Original" />
+                                    <ComboBoxItem Content="Polite" />
+                                    <ComboBoxItem Content="Professional" />
+                                    <ComboBoxItem Content="Casual" />
+                                    <ComboBoxItem Content="Emojified" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <Button x:Name="GenerateButton"
+                                    Grid.Column="4"
+                                    MinWidth="112"
+                                    Height="40"
+                                    VerticalAlignment="Bottom"
+                                    Content="Generate  ✦"
+                                    Click="GenerateButton_Click"
+                                    Style="{StaticResource PrimaryButtonStyle}" />
+                        </Grid>
                     </StackPanel>
+                </Border>
 
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Margin="1,0,0,7"
-                                   Text="TONE"
-                                   Style="{StaticResource SectionLabelStyle}" />
-                        <ComboBox x:Name="ToneComboBox"
-                                  Height="40"
-                                  SelectedIndex="0"
-                                  Style="{StaticResource ModernComboBoxStyle}">
-                            <ComboBoxItem Content="Original" />
-                            <ComboBoxItem Content="Polite" />
-                            <ComboBoxItem Content="Professional" />
-                            <ComboBoxItem Content="Casual" />
-                            <ComboBoxItem Content="Emojified" />
-                        </ComboBox>
-                    </StackPanel>
-
-                    <Button x:Name="GenerateButton"
-                            Grid.Column="4"
-                            MinWidth="112"
-                            Height="40"
-                            Margin="0,22,0,0"
-                            Content="Generate  ✦"
-                            Click="GenerateButton_Click"
-                            Style="{StaticResource PrimaryButtonStyle}" />
-                </Grid>
-
-                <Grid Grid.Row="4" Margin="1,13,1,0">
+                <Grid Grid.Row="3" Margin="1,12,1,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -232,12 +255,14 @@
                                  Height="6"
                                  Margin="0,0,7,0"
                                  Fill="{StaticResource OverlaySuccessBrush}" />
-                        <TextBlock Text="Private processing · No history stored"
+                        <TextBlock x:Name="PrivacyText"
+                                   Text="Private processing · No history stored"
                                    Foreground="{StaticResource OverlayMutedTextBrush}"
                                    FontSize="10" />
                     </StackPanel>
 
-                    <Border Grid.Column="2"
+                    <Border x:Name="EnglishOutputBadge"
+                            Grid.Column="2"
                             Padding="11,6"
                             Background="{StaticResource OverlayRaisedSurfaceBrush}"
                             BorderBrush="{StaticResource OverlayBorderBrush}"
@@ -257,24 +282,91 @@
                 </Grid>
 
                 <StackPanel x:Name="ResultPanel"
-                            Grid.Row="5"
-                            Margin="0,19,0,0"
+                            Grid.Row="4"
+                            Margin="0,16,0,0"
                             Visibility="Collapsed">
                     <Grid Margin="1,0,1,8">
-                        <TextBlock Text="SUGGESTION"
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="SUGGESTION"
                                    Style="{StaticResource SectionLabelStyle}" />
-                        <TextBlock HorizontalAlignment="Right"
-                                   Text="LOCAL AI RESULT"
-                                   Foreground="{StaticResource OverlayAccentBrush}"
-                                   FontSize="9"
-                                   FontWeight="SemiBold" />
+                        <StackPanel x:Name="FormatToolbar"
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+                            <Button AutomationProperties.Name="Bold"
+                                    Content="B"
+                                    FontWeight="Bold"
+                                    ToolTip="Bold (Ctrl+B)"
+                                    Command="EditingCommands.ToggleBold"
+                                    CommandTarget="{Binding ElementName=ResultText}"
+                                    Style="{StaticResource FormatButtonStyle}" />
+                            <Button AutomationProperties.Name="Italic"
+                                    Content="I"
+                                    FontStyle="Italic"
+                                    ToolTip="Italic (Ctrl+I)"
+                                    Command="EditingCommands.ToggleItalic"
+                                    CommandTarget="{Binding ElementName=ResultText}"
+                                    Style="{StaticResource FormatButtonStyle}" />
+                            <Button AutomationProperties.Name="Underline"
+                                    ToolTip="Underline (Ctrl+U)"
+                                    Command="EditingCommands.ToggleUnderline"
+                                    CommandTarget="{Binding ElementName=ResultText}"
+                                    Style="{StaticResource FormatButtonStyle}">
+                                <TextBlock Text="U" TextDecorations="Underline" />
+                            </Button>
+                            <Button AutomationProperties.Name="Bulleted list"
+                                    Content="•"
+                                    ToolTip="Bulleted list"
+                                    Command="EditingCommands.ToggleBullets"
+                                    CommandTarget="{Binding ElementName=ResultText}"
+                                    Style="{StaticResource FormatButtonStyle}" />
+                            <Button x:Name="ColorButton"
+                                    AutomationProperties.Name="Text color and highlight"
+                                    Focusable="True"
+                                    ToolTip="Text color and highlight"
+                                    Click="ColorButton_Click"
+                                    Style="{StaticResource FormatButtonStyle}">
+                                <StackPanel>
+                                    <TextBlock HorizontalAlignment="Center" Text="A" />
+                                    <Border Width="14"
+                                            Height="3"
+                                            Background="{StaticResource OverlayAccentGradientBrush}"
+                                            CornerRadius="1" />
+                                </StackPanel>
+                            </Button>
+                            <Popup x:Name="ColorPopup"
+                                   AllowsTransparency="True"
+                                   Placement="Bottom"
+                                   PlacementTarget="{Binding ElementName=ColorButton}"
+                                   PreviewKeyDown="ColorPopup_PreviewKeyDown"
+                                   StaysOpen="False">
+                                <Border Margin="0,4,0,0"
+                                        Padding="12"
+                                        Background="{StaticResource OverlayPaperBrush}"
+                                        BorderBrush="{StaticResource OverlayStrongBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="11">
+                                    <StackPanel>
+                                        <TextBlock Margin="0,0,0,4"
+                                                   Text="Text color"
+                                                   Foreground="{StaticResource OverlayPaperTextBrush}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold" />
+                                        <StackPanel x:Name="TextColorSwatches" Orientation="Horizontal" />
+                                        <TextBlock Margin="0,8,0,4"
+                                                   Text="Highlight"
+                                                   Foreground="{StaticResource OverlayPaperTextBrush}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold" />
+                                        <StackPanel x:Name="HighlightSwatches" Orientation="Horizontal" />
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </StackPanel>
                     </Grid>
 
                     <Border MinHeight="92"
                             MaxHeight="215"
-                            Background="{StaticResource OverlaySurfaceBrush}"
-                            BorderBrush="{StaticResource OverlayBorderBrush}"
-                            BorderThickness="1"
+                            Background="{StaticResource OverlayPaperBrush}"
                             CornerRadius="11">
                         <Grid>
                             <Border Width="3"
@@ -282,21 +374,16 @@
                                     HorizontalAlignment="Left"
                                     Background="{StaticResource OverlayAccentGradientBrush}"
                                     CornerRadius="0,2,2,0" />
-                            <TextBox x:Name="ResultText"
-                                     Margin="16,12,13,12"
-                                     IsReadOnly="True"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     Foreground="{StaticResource OverlayTextBrush}"
-                                     SelectionBrush="#807C64C8"
-                                     FontSize="13"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto" />
+                            <RichTextBox x:Name="ResultText"
+                                         AutomationProperties.Name="Suggestion"
+                                         Margin="16,12,12,12"
+                                         IsReadOnly="True"
+                                         Style="{StaticResource PaperEditorStyle}" />
                         </Grid>
                     </Border>
                 </StackPanel>
 
-                <Grid Grid.Row="6" Margin="1,16,1,0">
+                <Grid Grid.Row="5" Margin="1,16,1,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />

@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.Windows;
+using ParaPhraser.Core;
 using Clipboard = System.Windows.Clipboard;
+using DataFormats = System.Windows.DataFormats;
+using DataObject = System.Windows.DataObject;
 using TextDataFormat = System.Windows.TextDataFormat;
 
 namespace ParaPhraser.Desktop.Services;
@@ -52,13 +55,17 @@ public sealed class ClipboardSelectionService
             var selectedText = await ClipboardRetry.ExecuteAsync(
                 () => Clipboard.GetText(TextDataFormat.UnicodeText),
                 cancellationToken);
+            var selectedHtml = await ClipboardRetry.ExecuteAsync(
+                () => Clipboard.GetData(DataFormats.Html) as string,
+                cancellationToken);
             return string.IsNullOrWhiteSpace(selectedText)
                 ? null
                 : new SelectionContext(
                     selectedText,
                     targetWindow,
                     applicationName,
-                    windowTitle);
+                    windowTitle,
+                    selectedHtml);
         }
         finally
         {
@@ -75,12 +82,33 @@ public sealed class ClipboardSelectionService
         }
     }
 
+    public Task CopyAsync(
+        SelectionContext context,
+        RichDocument content,
+        CancellationToken cancellationToken = default) =>
+        ClipboardRetry.ExecuteAsync(
+            () => Clipboard.SetDataObject(CreateClipboardData(context, content), copy: true),
+            cancellationToken);
+
+    private static DataObject CreateClipboardData(SelectionContext context, RichDocument content)
+    {
+        var data = new DataObject();
+        data.SetText(content.ToPlainText(), TextDataFormat.UnicodeText);
+        if (content.HasFormatting)
+        {
+            data.SetData(DataFormats.Html, content.ToClipboardHtml(context.ClipboardHtml));
+        }
+
+        return data;
+    }
+
     public async Task ReplaceAsync(
         SelectionContext context,
-        string replacement,
+        RichDocument replacement,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(replacement);
+        var replacementText = replacement.ToPlainText();
+        ArgumentException.ThrowIfNullOrWhiteSpace(replacementText);
 
         var clipboardBeforePaste = await ClipboardSnapshot.CaptureAsync(cancellationToken);
         var restorePreviousClipboard = true;
@@ -96,7 +124,7 @@ public sealed class ClipboardSelectionService
             }
 
             await ClipboardRetry.ExecuteAsync(
-                () => Clipboard.SetText(replacement, TextDataFormat.UnicodeText),
+                () => Clipboard.SetDataObject(CreateClipboardData(context, replacement), copy: true),
                 cancellationToken);
             await Task.Delay(ClipboardReadyDelayMilliseconds, cancellationToken);
 
@@ -111,7 +139,7 @@ public sealed class ClipboardSelectionService
             if (!containsReplacement
                 || !string.Equals(
                     preparedReplacement,
-                    replacement,
+                    replacementText,
                     StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(

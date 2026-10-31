@@ -13,5 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ParaPhraser.Core\ParaPhraser.Core.csproj" />
+    <InternalsVisibleTo Include="ParaPhraser.Core.SmokeTests" />
   </ItemGroup>
 </Project>

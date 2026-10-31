@@ -6,10 +6,57 @@
 2. `ClipboardSelectionService` waits for the shortcut modifiers to be released,
    preserves the clipboard, sends `Ctrl+C`, and reads the selected text.
 3. `OverlayWindow` shows a one-off contextual instruction composer beside the cursor.
-4. `RewriteCoordinator` sends the selection and source metadata to local Ollama.
+4. `RewriteCoordinator` sends the selection to the provider chosen in Settings.
 5. The overlay shows the suggestion without saving conversation history.
 6. When the user confirms, `ClipboardSelectionService` restores the original app,
    pastes the replacement, and restores the previous clipboard contents.
+
+## Providers
+
+`ChatTextTransformer` holds every prompt, so all modes behave the same on every
+provider. It talks to an `IChatBackend`:
+
+- `OllamaBackend` for offline mode.
+- `AnthropicBackend` for Claude, using the official SDK. Its address is pinned so
+  `ANTHROPIC_BASE_URL` cannot redirect a saved key.
+- `OpenAiCompatibleBackend` for OpenAI, Gemini, and OpenRouter.
+
+`OnlineProvider.All` lists the online providers. Add one that speaks the OpenAI
+format by adding a line there. Model lists come live from each provider, so no
+model names are built in apart from the Ollama default. If a provider's model
+list is public, set `KeyCheckPath` to an address that needs a key, or any key
+will pass the check on Save.
+
+Temperature is sent only to Ollama, because current online models reject it. When
+`IChatBackend.IsLocal` is false, application names and window titles are left out
+of the prompt, and the overlay names the provider instead of saying processing is
+private.
+
+`AppSettings` encrypts keys with DPAPI for the current Windows user. A provider's
+key error text is never shown, because some providers echo part of the key.
+
+## Rich text
+
+`RichDocument` is the only format the pipeline shares. Clipboard HTML and model
+output both pass through its parser, which keeps an allowlist of formatting and
+drops everything else, so model output never reaches the clipboard unfiltered.
+
+- Capture reads the clipboard's HTML. A selection with no formatting stays plain
+  text and takes the same path as before.
+- `RichFlowDocument` converts to and from the overlay's editable `RichTextBox`.
+- Formatted selections reach the model as a small HTML subset (`IsHtml`).
+- Text color and highlight travel as CSS on `span`. Neutral colors are dropped
+  because browsers stamp a default color on every run. After the model runs,
+  `MatchColorsTo` removes colors the source never had and puts lost colors back
+  on words that survived unchanged.
+- Format is a separate mode. The model returns only a `FormattingPlan`, a list
+  of phrases, and `RichDocument.ApplyFormatting` applies them by exact match, so
+  the words cannot change. Do not move this into the rewrite prompt: when asked
+  to emphasize while rewriting, the model invented sentences and deadlines to
+  have something to bold.
+- Paste puts both HTML and plain text on the clipboard. The rewrite is placed
+  inside the source's own HTML document, because Word keeps fonts in its style
+  sheet rather than on each paragraph.
 
 ## Boundaries
 
@@ -28,11 +75,11 @@ without changing selection capture or UI code.
 
 ## Planned next slices
 
-- A settings UI for the local Ollama model and context limit.
+- A setting for the context limit.
 - Configurable shortcut settings stored per Windows user.
 - UI Automation selection capture before the clipboard fallback.
 - Direct replace mode with a visible undo notification.
-- HTML/RTF-aware replacement for rich editors.
+- RTF capture for apps that do not copy HTML.
 - Startup registration and installer/update integration.
 
 ## Security rules

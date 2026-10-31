@@ -12,6 +12,9 @@
         <SolidColorBrush x:Key="OverlayMutedTextBrush" Color="#FFA6ADBF" />
         <SolidColorBrush x:Key="OverlayAccentBrush" Color="#FFA78BFA" />
         <SolidColorBrush x:Key="OverlaySuccessBrush" Color="#FF63D7B0" />
+        <SolidColorBrush x:Key="OverlayPaperBrush" Color="#FFF1EFF6" />
+        <SolidColorBrush x:Key="OverlayPaperTextBrush" Color="#FF1F2230" />
+        <SolidColorBrush x:Key="OverlayComposerBrush" Color="#FF2A2447" />
 
         <LinearGradientBrush x:Key="OverlayBackgroundBrush"
                              StartPoint="0,0"
@@ -40,6 +43,97 @@
             <Setter Property="Foreground" Value="{StaticResource OverlayMutedTextBrush}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="PaperEditorStyle" TargetType="RichTextBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource OverlayPaperTextBrush}" />
+            <Setter Property="CaretBrush" Value="#FF5B3FD0" />
+            <Setter Property="SelectionBrush" Value="#807C64C8" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <!-- Links render as disabled grey text otherwise. -->
+            <Setter Property="IsDocumentEnabled" Value="True" />
+        </Style>
+
+        <Style x:Key="ComposerBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource OverlayComposerBrush}" />
+            <Setter Property="BorderBrush" Value="#FF5A4A9C" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource OverlayAccentGradientBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ModeCardStyle" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="CardBorder"
+                                Padding="16,12"
+                                Background="{StaticResource OverlaySurfaceBrush}"
+                                BorderBrush="{StaticResource OverlayBorderBrush}"
+                                BorderThickness="1.5"
+                                CornerRadius="12">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CardBorder"
+                                        Property="BorderBrush"
+                                        Value="{StaticResource OverlayStrongBorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CardBorder"
+                                        Property="Background"
+                                        Value="{StaticResource OverlayComposerBrush}" />
+                                <Setter TargetName="CardBorder"
+                                        Property="BorderBrush"
+                                        Value="{StaticResource OverlayAccentGradientBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="CardBorder"
+                                        Property="BorderBrush"
+                                        Value="{StaticResource OverlayAccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SettingsPasswordBoxStyle" TargetType="PasswordBox">
+            <Setter Property="Foreground" Value="{StaticResource OverlayTextBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource OverlayAccentBrush}" />
+            <Setter Property="SelectionBrush" Value="#807C64C8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="InputBorder"
+                                Padding="11,0"
+                                Background="{StaticResource OverlayRaisedSurfaceBrush}"
+                                BorderBrush="{StaticResource OverlayBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="InputBorder"
+                                        Property="BorderBrush"
+                                        Value="{StaticResource OverlayAccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="OverlayButtonStyle" TargetType="Button">
@@ -76,6 +170,49 @@
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FormatButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource OverlayButtonStyle}">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+
+        <Style x:Key="SwatchButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Foreground" Value="{StaticResource OverlayPaperTextBrush}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="SwatchBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="#40000000"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SwatchBorder" Property="BorderBrush" Value="#FF5B3FD0" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="SwatchBorder" Property="BorderBrush" Value="#FF5B3FD0" />
+                                <Setter TargetName="SwatchBorder" Property="BorderThickness" Value="2" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -197,12 +334,23 @@
                                 </ToggleButton.Template>
                             </ToggleButton>
 
-                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                            <ContentPresenter x:Name="SelectedContent"
+                                              Margin="{TemplateBinding Padding}"
                                               IsHitTestVisible="False"
                                               VerticalAlignment="Center"
                                               Content="{TemplateBinding SelectionBoxItem}"
                                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                               ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" />
+
+                            <TextBox x:Name="PART_EditableTextBox"
+                                     Margin="9,0,28,0"
+                                     VerticalAlignment="Center"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     CaretBrush="{StaticResource OverlayAccentBrush}"
+                                     Foreground="{TemplateBinding Foreground}"
+                                     SelectionBrush="#807C64C8"
+                                     Visibility="Collapsed" />
 
                             <Path x:Name="Chevron"
                                   Width="9"
@@ -246,6 +394,10 @@
                             </Popup>
                         </Grid>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="SelectedContent" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
                             <Trigger Property="IsKeyboardFocusWithin" Value="True">
                                 <Setter Property="BorderBrush" Value="{StaticResource OverlayAccentBrush}" />
                             </Trigger>

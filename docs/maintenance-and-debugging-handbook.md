@@ -6,9 +6,9 @@ The guide describes the code as it exists now. When behavior and this document d
 
 ## 1. What the application is
 
-ParaPhraser is a Windows tray application with no normal main window. It waits in the background for a global keyboard shortcut, copies the text currently selected in another application, opens a WPF overlay near the mouse, sends an instruction and context to a local Ollama model, and lets the user copy or paste the result back into the original application.
+ParaPhraser is a Windows tray application with no normal main window. It waits in the background for a global keyboard shortcut, copies the text currently selected in another application, opens a WPF overlay near the mouse, sends an instruction and context to the provider chosen in Settings, and lets the user copy or paste the result back into the original application.
 
-The default local model is `gemma3:4b`. The API stays on the local machine at `http://127.0.0.1:11434`; the application contains no cloud AI client and stores no rewrite history.
+Offline mode is the default and uses Ollama. Its default model is `gemma3:4b`, and its API stays on the local machine at `http://127.0.0.1:11434`. Online mode sends the selected text to the provider chosen in Settings, using the API key saved there. `ChatTextTransformer` holds the prompts, and the HTTP calls live in `OllamaBackend`, `AnthropicBackend`, and `OpenAiCompatibleBackend`. The application stores no rewrite history either way.
 
 Current user flow:
 
@@ -43,7 +43,7 @@ RewriteCoordinator -- owns the complete operation
         +--> OverlayWindow -- edit context/options and click Generate
                  |
                  v
-        OllamaTextTransformer -- POST /api/chat to gemma3:4b
+        ChatTextTransformer -- POST /api/chat to gemma3:4b
                  |
                  v
         OverlayWindow -- review result
@@ -80,9 +80,9 @@ ParaPhraser/
 |   |   |-- RewriteTone.cs               Original/Polite/Professional/Casual/Emojified
 |   |   |-- WritingLanguage.cs            Source-language classification
 |   |   |-- WritingLanguageResolver.cs    Lightweight source/output detection
-|   |   |-- OllamaTextTransformer.cs      Local AI readiness, prompts, API calls
-|   |   |-- LocalAiStatus.cs              Ready flag and human-readable message
-|   |   |-- LocalAiUnavailableException.cs Expected local-AI outage error
+|   |   |-- ChatTextTransformer.cs      Local AI readiness, prompts, API calls
+|   |   |-- AiStatus.cs              Ready flag and human-readable message
+|   |   |-- AiUnavailableException.cs Expected local-AI outage error
 |   |   `-- DemoTextTransformer.cs        Deterministic smoke-test transformer
 |   `-- ParaPhraser.Desktop/             WPF/WinForms Windows shell
 |       |-- App.xaml                      Global colors and control templates
@@ -170,12 +170,12 @@ There is no console window because the output type is `WinExe`. Successful start
 2. If the mutex already exists, calls `Shutdown()` immediately. This is the single-instance guard.
 3. Creates `OverlayWindow`.
 4. Creates `ClipboardSelectionService`.
-5. reads `PARAPHRASER_OLLAMA_MODEL`; if blank, `OllamaTextTransformer` uses `gemma3:4b`.
+5. reads `PARAPHRASER_OLLAMA_MODEL`; if blank, `ChatTextTransformer` uses `gemma3:4b`.
 6. Creates `RewriteCoordinator` and connects its local-AI-unavailable event.
 7. Creates `GlobalHotkeyService`.
 8. Registers hotkey ID 1 as `Ctrl+Alt+G` and ID 2 as `Ctrl+Alt+R`.
 9. Creates the WinForms tray icon and menu.
-10. Starts `NotifyOllamaStatusAsync` without blocking startup.
+10. Starts `NotifyAiStatusAsync` without blocking startup.
 11. Registers a WPF dispatcher exception handler that displays unhandled UI errors in the overlay.
 
 At exit, `App.OnExit` unsubscribes events, unregisters hotkeys, disposes the hidden hotkey window and tray icon, closes the overlay, and releases the mutex.
@@ -212,7 +212,7 @@ To change a hotkey, update all three places that describe it:
 1. Waits for Ctrl/Alt/Shift from the global shortcut to be released. It checks up to 40 times at 15 ms intervals.
 2. Calls `GetForegroundWindow`. This HWND is the future replacement target.
 3. Gets the target process name and window title. These are prompt context, not surrounding document text.
-4. Captures every available clipboard format with `ClipboardSnapshot`.
+4. Copies the clipboard's formats with `ClipboardSnapshot`, skipping slow Office formats that repeat content held in other formats.
 5. Records `GetClipboardSequenceNumber`.
 6. Uses `SendInput` to send Ctrl+C.
 7. Polls the sequence number up to 20 times at 20 ms intervals, for about 400 ms maximum.
@@ -242,7 +242,7 @@ The model receives:
 
 `OverlayWindow.ShowComposer` resets the screen for every fresh shortcut:
 
-- Copies the captured selection into editable `OriginalText`.
+- Copies the captured selection, with its formatting, into editable `OriginalText`.
 - Copies the default instruction into editable `InstructionText`.
 - Selects the action associated with the shortcut.
 - Resets tone to Original. Output language is fixed to English and is not resettable.
@@ -291,11 +291,11 @@ new RewriteRequest(
 
 It calls `ITextTransformer.TransformAsync`. This interface is the provider boundary: replacing Ollama with another local engine should require a new transformer implementation, not changes to clipboard/UI code.
 
-`LocalAiUnavailableException` is treated specially: its text appears in the overlay and fires `LocalAiUnavailable`, which produces a warning balloon. Other exceptions appear only in the overlay.
+`AiUnavailableException` is treated specially: its text appears in the overlay and fires `AiUnavailable`, which produces a warning balloon. Other exceptions appear only in the overlay.
 
 ## 10. Ollama request contract
 
-`OllamaTextTransformer` owns all local-model behavior.
+`ChatTextTransformer` owns all local-model behavior.
 
 ### Endpoint and timeout
 
@@ -410,7 +410,7 @@ The sequence-number guard is essential. Without it, ParaPhraser could overwrite 
 
 Common limitations:
 
-- Replacement is plain Unicode text, so rich formatting can be lost.
+- Formatted replacement needs a target that reads clipboard HTML. Fonts are reduced to one per replacement, and tables, images, and nested list levels are not kept.
 - The original selection can disappear when another window gains focus. Many editors preserve it, some do not.
 - Windows User Interface Privilege Isolation blocks a normal process from sending input to an administrator-elevated target. Run both at the same privilege level; do not routinely run ParaPhraser as administrator.
 - Browser editors, Teams, Outlook, Electron editors, remote desktops, and custom controls have different focus/paste behavior. Always establish a baseline in Notepad.
@@ -549,7 +549,7 @@ Useful breakpoint sequence:
 | Capture result | `RewriteCoordinator.HandleAsync` | `context.Text`, app name/title |
 | UI choices | `OverlayWindow.GenerateAsync` | edited text, instruction, indices/enums |
 | Request creation | `RewriteCoordinator.GenerateAsync` | full `RewriteRequest` |
-| Ollama call | `OllamaTextTransformer.TransformAsync` | `_model`, payload, response status |
+| Ollama call | `ChatTextTransformer.TransformAsync` | `_model`, payload, response status |
 | Language validation | `CorrectLanguageIfNeededAsync` | detected language, draft, corrected text |
 | Replace click | `OverlayWindow.ReplaceAsync` | `_replaceAsync` and exception |
 | Focus/paste | `ClipboardSelectionService.ReplaceAsync` | target HWND, foreground HWND, sequences |
@@ -558,7 +558,7 @@ In **Debug > Windows > Exception Settings**, enable break-on-thrown temporarily 
 
 - `System.ComponentModel.Win32Exception`
 - `System.Runtime.InteropServices.COMException`
-- `ParaPhraser.Core.LocalAiUnavailableException`
+- `ParaPhraser.Core.AiUnavailableException`
 - `System.InvalidOperationException`
 
 The application catches several of these to show friendly UI. Breaking only on unhandled exceptions can therefore miss the original failure location.
@@ -749,7 +749,7 @@ Re-publishing over a running published executable can fail because Windows locks
 ### Add a new action
 
 1. Add a member to `RewriteMode` if it is truly new.
-2. Add/update default instructions in `RewriteCoordinator` and `OllamaTextTransformer`.
+2. Add/update default instructions in `RewriteCoordinator` and `ChatTextTransformer`.
 3. Add the ComboBox item in `OverlayWindow.xaml`.
 4. Update both action index mappings in `OverlayWindow.xaml.cs`.
 5. Decide whether it needs a global hotkey.
@@ -784,7 +784,7 @@ The prompt builder already supports a non-empty `SurroundingText`, so provider c
 
 ### Replace Ollama with another local provider
 
-Implement `ITextTransformer`. Keep endpoint/prompt/deserialization/provider errors inside that implementation. Construct it in `App.OnStartup`. Preserve `LocalAiUnavailableException` semantics if you want existing overlay/tray warnings to work.
+Implement `ITextTransformer`. Keep endpoint/prompt/deserialization/provider errors inside that implementation. Construct it in `App.OnStartup`. Preserve `AiUnavailableException` semantics if you want existing overlay/tray warnings to work.
 
 ## 21. Privacy, security, and trust boundaries
 

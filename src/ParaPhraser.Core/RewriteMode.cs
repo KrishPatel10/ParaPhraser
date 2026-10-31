@@ -5,6 +5,7 @@ public enum RewriteMode
     Grammar,
     Rewrite,
     Shorten,
-    Professional
+    Professional,
+    Format
 }
 

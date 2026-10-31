@@ -1,0 +1,49 @@
+namespace ParaPhraser.Core;
+
+/// <param name="OpenAiBaseUrl">Set for providers that speak the OpenAI chat format.</param>
+/// <param name="KeyCheckPath">
+/// An address that needs a valid key. OpenRouter's model list is public, so it
+/// would accept any key.
+/// </param>
+public sealed record OnlineProvider(
+    string Id,
+    string Name,
+    string KeyPageUrl,
+    string? OpenAiBaseUrl = null,
+    string KeyCheckPath = "models")
+{
+    public static IReadOnlyList<OnlineProvider> All { get; } =
+    [
+        new("anthropic", "Anthropic Claude", "https://platform.claude.com/settings/keys"),
+        new("openai", "OpenAI", "https://platform.openai.com/api-keys", "https://api.openai.com/v1/"),
+        new(
+            "gemini",
+            "Google Gemini",
+            "https://aistudio.google.com/apikey",
+            "https://generativelanguage.googleapis.com/v1beta/openai/"),
+        new("openrouter", "OpenRouter", "https://openrouter.ai/keys", "https://openrouter.ai/api/v1/", "key")
+    ];
+
+    public static OnlineProvider Find(string? id) =>
+        All.FirstOrDefault(provider => provider.Id == id) ?? All[0];
+
+    public IChatBackend CreateBackend(string apiKey, string model) => OpenAiBaseUrl is null
+        ? new AnthropicBackend(this, apiKey, model)
+        : new OpenAiCompatibleBackend(this, apiKey, model);
+
+    /// <summary>
+    /// Runs a call that costs nothing but proves the key works.
+    /// </summary>
+    internal static async Task<AiStatus> CheckKeyAsync(IChatBackend backend, Func<Task> check)
+    {
+        try
+        {
+            await check();
+            return new AiStatus(true, $"Connected with {backend.Label}.");
+        }
+        catch (InvalidOperationException exception)
+        {
+            return new AiStatus(false, exception.Message);
+        }
+    }
+}
