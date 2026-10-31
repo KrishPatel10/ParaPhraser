@@ -142,3 +142,7 @@ Its editable source is the
 [Markdown handbook](docs/maintenance-and-debugging-handbook.md).
 See [docs/architecture.md](docs/architecture.md) for the shorter component
 overview and next development slices.
+
+## License
+
+ParaPhraser is released under the [MIT License](LICENSE).
