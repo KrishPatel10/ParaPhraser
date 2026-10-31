@@ -49,24 +49,11 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Width="42"
-                            Height="42"
-                            Background="{StaticResource OverlayAccentGradientBrush}"
-                            CornerRadius="12">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="12"
-                                              Direction="270"
-                                              Opacity="0.3"
-                                              ShadowDepth="3"
-                                              Color="#FF7655C8" />
-                        </Border.Effect>
-                        <TextBlock HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Text="P"
-                                   Foreground="White"
-                                   FontSize="19"
-                                   FontWeight="Bold" />
-                    </Border>
+                    <Path Width="42"
+                          Height="42"
+                          Data="M8 4H34A22 22 0 0 1 34 48H27L17.5 63L8 48ZM21 16H33A10 10 0 0 1 33 36H21ZM21 36H25L18 62H17Z"
+                          Fill="{StaticResource OverlayAccentGradientBrush}"
+                          Stretch="Uniform" />
 
                     <StackPanel Grid.Column="1" Margin="13,1,16,0">
                         <TextBlock Text="ParaPhraser"
