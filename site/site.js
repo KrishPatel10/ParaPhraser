@@ -125,6 +125,7 @@ fetch('https://api.github.com/repos/KrishPatel10/ParaPhraser/releases/latest')
     const setup = release?.assets.find(asset => /-Setup-.*\.exe$/.test(asset.name));
     if (setup) {
       document.querySelectorAll('[data-download]').forEach(link => { link.href = setup.browser_download_url; });
+      document.getElementById('end-version').textContent = `Version ${release.tag_name.replace(/^v/, '')} · Free and open source`;
     }
   })
   .catch(() => {});
