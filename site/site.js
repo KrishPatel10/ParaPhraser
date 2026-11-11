@@ -128,3 +128,125 @@ fetch('https://api.github.com/repos/KrishPatel10/ParaPhraser/releases/latest')
     }
   })
   .catch(() => {});
+
+// The hero window is a small working demo of the app.
+const presets = {
+  clear: {
+    instruction: 'Rewrite this clearly and naturally.',
+    text: 'Could you send me the report by Friday? I need it for the client meeting.',
+    changes: '<del>hey can u</del> <ins>Could you</ins> send me the report by <del>friday, i</del> <ins>Friday? I</ins> need it for the client meeting<ins>.</ins>'
+  },
+  polite: {
+    instruction: 'Make it warm and polite.',
+    text: 'Hi! Would you mind sending me the report by Friday? I need it for the client meeting. Thank you!',
+    changes: '<del>hey can u send</del> <ins>Hi! Would you mind sending</ins> me the report by <del>friday, i</del> <ins>Friday? I</ins> need it for the client meeting<ins>. Thank you!</ins>'
+  },
+  short: {
+    instruction: 'Make it as short as possible.',
+    text: 'Please send the report by Friday for the client meeting.',
+    changes: '<del>hey can u</del> <ins>Please</ins> send <del>me</del> the report by <del>friday, i need it for</del> <ins>Friday for</ins> the client meeting<ins>.</ins>'
+  }
+};
+
+const hero = {
+  window: document.querySelector('.hero-picture .win'),
+  original: document.getElementById('hero-original'),
+  originalPaper: document.querySelector('.paper.original'),
+  source: document.getElementById('hero-source'),
+  instruction: document.getElementById('hero-instruction'),
+  suggestion: document.getElementById('hero-suggestion'),
+  status: document.getElementById('hero-status'),
+  changes: document.getElementById('hero-changes'),
+  copy: document.getElementById('hero-copy'),
+  replace: document.getElementById('hero-replace'),
+  presetButtons: [...document.querySelectorAll('[data-preset]')]
+};
+const originalText = hero.original.textContent;
+let current = presets.clear;
+let run = 0;
+
+// A changing label reads better through a short blur than a hard swap.
+function swapText(element, text) {
+  element.textContent = text;
+  if (!calm.matches) {
+    element.animate([{ filter: 'blur(2px)', opacity: 0.4 }, { filter: 'none', opacity: 1 }], { duration: 200, easing: 'ease-out' });
+  }
+}
+
+function setReplaced(replaced) {
+  hero.originalPaper.classList.toggle('replaced', replaced);
+  swapText(hero.original, replaced ? current.text : originalText);
+  swapText(hero.source, replaced ? 'Replaced in Teams' : 'Original · Teams');
+  swapText(hero.replace, replaced ? 'Undo' : 'Replace');
+}
+
+// Words arrive one at a time, the way the app streams a suggestion.
+async function generate() {
+  const id = ++run;
+  if (hero.originalPaper.classList.contains('replaced')) {
+    setReplaced(false);
+  }
+
+  hero.changes.setAttribute('aria-pressed', 'false');
+  hero.changes.textContent = 'Show changes';
+  [hero.changes, hero.copy, hero.replace].forEach(button => { button.disabled = true; });
+  hero.status.textContent = '';
+  hero.suggestion.setAttribute('aria-busy', 'true');
+  hero.window.classList.add('streaming');
+
+  const words = current.text.split(' ');
+  hero.suggestion.textContent = '';
+  for (let index = 0; index < words.length; index++) {
+    if (!calm.matches) {
+      await new Promise(resolve => setTimeout(resolve, 45));
+    }
+
+    if (id !== run) {
+      return;
+    }
+
+    hero.suggestion.textContent = words.slice(0, index + 1).join(' ');
+  }
+
+  hero.window.classList.remove('streaming');
+  hero.suggestion.setAttribute('aria-busy', 'false');
+  hero.status.textContent = '· 1.2 s';
+  [hero.changes, hero.copy, hero.replace].forEach(button => { button.disabled = false; });
+}
+
+hero.presetButtons.forEach(button => button.addEventListener('click', () => {
+  if (button.getAttribute('aria-pressed') === 'true') {
+    return;
+  }
+
+  press(hero.presetButtons, button);
+  current = presets[button.dataset.preset];
+  swapText(hero.instruction, current.instruction);
+  generate();
+}));
+
+document.getElementById('hero-generate').addEventListener('click', generate);
+
+hero.changes.addEventListener('click', () => {
+  const showing = hero.changes.getAttribute('aria-pressed') !== 'true';
+  hero.changes.setAttribute('aria-pressed', String(showing));
+  hero.changes.textContent = showing ? 'Hide changes' : 'Show changes';
+  if (showing) {
+    hero.suggestion.innerHTML = current.changes;
+  } else {
+    hero.suggestion.textContent = current.text;
+  }
+});
+
+let copiedTimer;
+hero.copy.addEventListener('click', () => {
+  navigator.clipboard?.writeText(current.text).catch(() => {});
+  swapText(hero.copy, 'Copied');
+  clearTimeout(copiedTimer);
+  copiedTimer = setTimeout(() => swapText(hero.copy, 'Copy'), 1400);
+});
+
+hero.replace.addEventListener('click', () => setReplaced(!hero.originalPaper.classList.contains('replaced')));
+
+// Play the first suggestion once the window has slid in.
+setTimeout(generate, calm.matches ? 0 : 1300);

@@ -10,7 +10,8 @@
 <link rel="preconnect" href="https://api.fontshare.com">
 <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
 <link href="https://api.fontshare.com/v2/css?f[]=roundo@400,500,600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<!-- Change ?v= whenever styles.css or site.js changes, or browsers can pair the new page with old cached files. -->
+<link rel="stylesheet" href="styles.css?v=2026-11-11b">
 <script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
@@ -39,13 +40,27 @@
       <a class="button" data-download href="https://github.com/KrishPatel10/ParaPhraser/releases/latest">Download for Windows</a>
       <p class="note">Free and open source. Runs offline, or online with your own key. Windows 10 or 11, 64-bit. 85 MB.</p>
     </div>
-    <div class="hero-picture" data-ui role="img" aria-label="The ParaPhraser window showing an original sentence above a more polished suggestion, with Copy and Replace buttons.">
+    <div class="hero-picture" data-ui role="group" aria-label="Try the ParaPhraser window">
       <div class="win">
         <div class="win-head"><span>Rewrite</span><span class="pill">Offline</span></div>
-        <div class="paper"><b>Original</b>hey can u send me the report by friday, i need it for the client meeting</div>
-        <div class="paper"><b>Suggestion</b>Could you send me the report by Friday? I need it for the client meeting.</div>
-        <div class="win-actions"><span class="ghost">Show changes</span><span class="ghost">Copy</span><span class="solid">Replace</span></div>
+        <div class="paper original"><b id="hero-source">Original · Teams</b><span id="hero-original">hey can u send me the report by friday, i need it for the client meeting</span></div>
+        <div class="instruction">
+          <b>Instruction</b>
+          <div class="instruction-row"><span id="hero-instruction">Rewrite this clearly and naturally.</span><button type="button" class="generate" id="hero-generate">Generate ✦</button></div>
+          <div class="presets" role="group" aria-label="Choose an instruction">
+            <button type="button" data-preset="clear" aria-pressed="true">Clear</button>
+            <button type="button" data-preset="polite" aria-pressed="false">Polite</button>
+            <button type="button" data-preset="short" aria-pressed="false">Shorter</button>
+          </div>
+        </div>
+        <div class="paper suggestion"><b>Suggestion <span id="hero-status"></span></b><span id="hero-suggestion" aria-live="polite">Could you send me the report by Friday? I need it for the client meeting.</span></div>
+        <div class="win-actions">
+          <button type="button" class="ghost" id="hero-changes" aria-pressed="false">Show changes</button>
+          <button type="button" class="ghost" id="hero-copy">Copy</button>
+          <button type="button" class="solid" id="hero-replace">Replace</button>
+        </div>
       </div>
+    </div>
     </div>
   </section>
 
@@ -229,6 +244,6 @@
     <a href="https://github.com/KrishPatel10/ParaPhraser/blob/main/LICENSE">MIT licence</a>
   </nav>
 </footer>
-<script src="site.js"></script>
+<script src="site.js?v=2026-11-11b"></script>
 </body>
 </html>
