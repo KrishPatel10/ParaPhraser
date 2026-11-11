@@ -38,8 +38,13 @@ public sealed class RewriteCoordinator
 
     private const int PartialTextIntervalMilliseconds = 80;
 
+    /// <param name="instruction">
+    /// A saved instruction to run straight away. Without one, the composer
+    /// waits for Generate.
+    /// </param>
     public async Task HandleAsync(
         RewriteMode mode,
+        string? instruction = null,
         CancellationToken cancellationToken = default)
     {
         if (!await _singleOperation.WaitAsync(0, cancellationToken))
@@ -47,12 +52,13 @@ public sealed class RewriteCoordinator
             return;
         }
 
+        SelectionContext? context = null;
         try
         {
-            var context = await CaptureAsync(cancellationToken);
+            context = await CaptureAsync(cancellationToken);
             if (context is not null)
             {
-                ShowComposer(context, mode, cancellationToken);
+                ShowComposer(context, mode, cancellationToken, instruction);
             }
         }
         catch (OperationCanceledException)
@@ -63,14 +69,22 @@ public sealed class RewriteCoordinator
         {
             _singleOperation.Release();
         }
+
+        // Run only once the lock is free, because generating takes it too.
+        if (context is not null && instruction is not null)
+        {
+            await _overlay.GenerateAsync();
+        }
     }
 
     /// <summary>
     /// Rewrites and pastes with no review step. It only applies a result that
     /// passes every check, and otherwise opens the overlay so nothing is lost.
     /// </summary>
+    /// <param name="instruction">A saved instruction to use instead of the mode's default.</param>
     public async Task HandleInstantAsync(
         RewriteMode mode,
+        string? instruction = null,
         CancellationToken cancellationToken = default)
     {
         if (!await _singleOperation.WaitAsync(0, cancellationToken))
@@ -103,11 +117,11 @@ public sealed class RewriteCoordinator
                 new RewriteRequest(
                     isHtml ? selection.ToHtml() : selection.ToPlainText(),
                     mode,
-                    GetDefaultInstruction(mode),
+                    instruction ?? GetDefaultInstruction(mode),
                     new RewriteContext(context.ApplicationName, context.WindowTitle),
                     RewriteTone.Original,
                     isHtml,
-                    UsesDefaultInstruction: true),
+                    UsesDefaultInstruction: instruction is null),
                 cancellationToken: generation.Token);
 
             suggestion = isHtml
@@ -123,7 +137,7 @@ public sealed class RewriteCoordinator
                 _toast.Hide();
                 var capturedContext = context;
                 var reviewed = suggestion;
-                ShowComposer(capturedContext, mode, cancellationToken);
+                ShowComposer(capturedContext, mode, cancellationToken, instruction);
                 _overlay.ShowSuggestion(
                     reviewed,
                     GetReviewStatus(missing, $"{result.Provider} · {result.Duration.TotalSeconds:0.0} s"),
@@ -159,7 +173,7 @@ public sealed class RewriteCoordinator
         // Shown only after the lock is free, so Generate works straight away.
         if (failure is not null && context is not null)
         {
-            ShowComposer(context, mode, cancellationToken);
+            ShowComposer(context, mode, cancellationToken, instruction);
             await ShowFailureAsync(failure);
         }
     }
@@ -207,13 +221,17 @@ public sealed class RewriteCoordinator
         }
     }
 
-    private void ShowComposer(SelectionContext context, RewriteMode mode, CancellationToken cancellationToken)
+    private void ShowComposer(
+        SelectionContext context,
+        RewriteMode mode,
+        CancellationToken cancellationToken,
+        string? instruction = null)
     {
         _overlay.ShowComposer(
             mode,
             RichDocument.FromClipboard(context.Text, context.ClipboardHtml),
             GetSourceLabel(context),
-            GetDefaultInstruction(mode),
+            instruction ?? GetDefaultInstruction(mode),
             RichDocument.ContainsUnsupportedContent(context.ClipboardHtml)
                 ? "Images and tables in the selection won't be kept"
                 : string.Empty,

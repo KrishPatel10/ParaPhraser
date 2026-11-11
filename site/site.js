@@ -16,13 +16,65 @@ function press(buttons, active) {
 
 const trySection = document.querySelector('.try');
 const modeButtons = [...trySection.querySelectorAll('button')];
-modeButtons.forEach(button => button.addEventListener('click', () => {
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+
+function showMode(button) {
+  if (button.getAttribute('aria-pressed') === 'true') {
+    return;
+  }
+
   const mode = modes[button.dataset.mode];
+  const output = document.getElementById('try-output');
   press(modeButtons, button);
   trySection.dataset.mode = button.dataset.mode;
   document.getElementById('try-word').textContent = mode.word;
   document.getElementById('try-label').textContent = mode.label;
-  document.getElementById('try-output').innerHTML = mode.html;
+  output.innerHTML = mode.html;
+  if (!calm.matches) {
+    output.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
+  }
+}
+
+// The section is pinned for several screens, and each equal slice of that
+// scroll shows the next action.
+function scrollRange() {
+  const top = trySection.getBoundingClientRect().top + scrollY;
+  return { top, length: Math.max(1, trySection.offsetHeight - innerHeight) };
+}
+
+const steps = [...trySection.querySelectorAll('.try-steps span')];
+const clamp = value => Math.min(Math.max(value, 0), 1);
+
+function followScroll() {
+  const { top, length } = scrollRange();
+  const progress = clamp((scrollY - top) / length);
+  const count = modeButtons.length;
+  showMode(modeButtons[Math.min(Math.floor(progress * count), count - 1)]);
+  steps.forEach((step, index) => step.style.setProperty('--fill', clamp(progress * count - index)));
+}
+
+addEventListener('scroll', followScroll, { passive: true });
+followScroll();
+
+// A click moves to that action's slice, so scrolling on carries on from there.
+modeButtons.forEach((button, index) => button.addEventListener('click', () => {
+  showMode(button);
+  const { top, length } = scrollRange();
+  scrollTo({ top: top + length * (index + 0.5) / modeButtons.length });
+}));
+
+const saved = {
+  email: { label: 'Client email', html: 'Hello, could you please send me the report by Friday? I need it for the client meeting. Thank you.' },
+  update: { label: 'Team update', html: "Quick ask: could someone send me the report by Friday? It's for the client meeting." },
+  bullets: { label: 'Bullet points', html: '• Report needed by Friday<br>• For the client meeting' }
+};
+
+const savedButtons = [...document.querySelectorAll('[data-saved]')];
+savedButtons.forEach(button => button.addEventListener('click', () => {
+  const choice = saved[button.dataset.saved];
+  press(savedButtons, button);
+  document.getElementById('saved-label').textContent = choice.label;
+  document.getElementById('saved-output').innerHTML = choice.html;
 }));
 
 const howButtons = [...document.querySelectorAll('[data-how]')];

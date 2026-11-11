@@ -45,7 +45,7 @@ public partial class SettingsWindow : Window
 
         // Edited as copies, so Cancel leaves the saved list alone.
         _savedInstructions = new ObservableCollection<SavedInstruction>(settings.SavedInstructions.Select(
-            saved => new SavedInstruction { Name = saved.Name, Instruction = saved.Instruction }));
+            saved => new SavedInstruction { Name = saved.Name, Instruction = saved.Instruction, Shortcut = saved.Shortcut, ReplaceDirectly = saved.ReplaceDirectly }));
         SavedInstructionsList.ItemsSource = _savedInstructions;
 
         ProviderComboBox.ItemsSource = OnlineProvider.All;
@@ -83,6 +83,13 @@ public partial class SettingsWindow : Window
         }
 
         e.Handled = true;
+        if (key is Key.Back or Key.Delete && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            ((System.Windows.Controls.TextBox)sender).Text = string.Empty;
+            SettingsStatusText.Text = string.Empty;
+            return;
+        }
+
         if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
             or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin)
         {
@@ -117,10 +124,19 @@ public partial class SettingsWindow : Window
     private bool TryValidateTabs()
     {
         string[] shortcuts = [GrammarShortcutBox.Text, RewriteShortcutBox.Text, FormatShortcutBox.Text, InstantShortcutBox.Text];
-        if (shortcuts.Distinct(StringComparer.OrdinalIgnoreCase).Count() != shortcuts.Length)
+        if (shortcuts.Any(string.IsNullOrWhiteSpace))
         {
             ShortcutsTabButton.IsChecked = true;
-            SettingsStatusText.Text = "Each action needs its own shortcut.";
+            SettingsStatusText.Text = "Each action needs a shortcut.";
+            return false;
+        }
+
+        var allShortcuts = shortcuts
+            .Concat(_savedInstructions.Select(saved => saved.Shortcut).Where(text => !string.IsNullOrWhiteSpace(text)))
+            .ToList();
+        if (allShortcuts.Distinct(StringComparer.OrdinalIgnoreCase).Count() != allShortcuts.Count)
+        {
+            SettingsStatusText.Text = "Each action and saved instruction needs its own shortcut.";
             return false;
         }
 

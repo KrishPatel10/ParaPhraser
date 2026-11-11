@@ -208,6 +208,12 @@ var flowThread = new Thread(() =>
             && parsedKey == 0x47,
             "A stored shortcut must parse.");
         Require(
+            HotkeyText.Format(System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Alt, System.Windows.Input.Key.D1) == "Ctrl+Alt+1"
+            && HotkeyText.TryParse("Ctrl+Alt+1", out _, out var digitKey) && digitKey == 0x31
+            && HotkeyText.TryParse("Ctrl+Alt+D1", out _, out var oldDigitKey) && oldDigitKey == 0x31
+            && !HotkeyText.TryParse("Ctrl+Alt+65", out _, out _),
+            "Number keys must read as digits, and old D1 settings must still work.");
+        Require(
             !HotkeyText.TryParse("Shift+G", out _, out _)
             && !HotkeyText.TryParse("Ctrl+Nonsense", out _, out _)
             && !HotkeyText.TryParse("Banana+G", out _, out _)
@@ -628,7 +634,8 @@ try
     savedSettings.GetProvider("gemini").Model = "alpha";
     savedSettings.Shortcuts.Grammar = "Ctrl+Shift+G";
     savedSettings.InstantMode = RewriteMode.Shorten;
-    savedSettings.SavedInstructions = [new SavedInstruction { Name = "Mine", Instruction = "Be brief." }];
+    savedSettings.SavedInstructions =
+        [new SavedInstruction { Name = "Mine", Instruction = "Be brief.", Shortcut = "Ctrl+Alt+1", ReplaceDirectly = true }];
     savedSettings.Save(settingsPath);
 
     var reloaded = AppSettings.Load(settingsPath);
@@ -636,7 +643,7 @@ try
         reloaded.Shortcuts.Grammar == "Ctrl+Shift+G"
         && reloaded.Shortcuts.Rewrite == "Ctrl+Alt+R"
         && reloaded.InstantMode == RewriteMode.Shorten
-        && reloaded.SavedInstructions is [{ Name: "Mine" }],
+        && reloaded.SavedInstructions is [{ Name: "Mine", Shortcut: "Ctrl+Alt+1", ReplaceDirectly: true }],
         "Shortcuts and saved instructions must survive a restart.");
     Require(
         new AppSettings().SavedInstructions.Count == 2,

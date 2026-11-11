@@ -18,6 +18,9 @@ public partial class App : Application
     private const int RewriteHotkeyId = 2;
     private const int FormatHotkeyId = 3;
     private const int InstantHotkeyId = 4;
+
+    // Saved instruction N uses this plus N.
+    private const int SavedInstructionHotkeyBaseId = 100;
     private const int OllamaStartupAttempts = 5;
     private const int FallbackListSeconds = 8;
     private const string ShowSettingsSignalName = "Local\\ParaPhraser.ShowSettings";
@@ -167,13 +170,16 @@ public partial class App : Application
 
         _hotkeys.UnregisterAll();
         var shortcuts = _settings.Shortcuts;
-        (int Id, string Text)[] bindings =
+        List<(int Id, string Text)> bindings =
         [
             (GrammarHotkeyId, shortcuts.Grammar),
             (RewriteHotkeyId, shortcuts.Rewrite),
             (FormatHotkeyId, shortcuts.Format),
             (InstantHotkeyId, shortcuts.Instant)
         ];
+        bindings.AddRange(_settings.SavedInstructions
+            .Select((saved, index) => (SavedInstructionHotkeyBaseId + index, saved.Shortcut))
+            .Where(binding => !string.IsNullOrWhiteSpace(binding.Shortcut)));
 
         var failed = new List<string>();
         foreach (var (id, text) in bindings)
@@ -303,6 +309,16 @@ public partial class App : Application
         if (hotkeyId == InstantHotkeyId)
         {
             await _coordinator.HandleInstantAsync(_settings?.InstantMode ?? RewriteMode.Grammar);
+            return;
+        }
+
+        var savedIndex = hotkeyId - SavedInstructionHotkeyBaseId;
+        if (_settings is not null && savedIndex >= 0 && savedIndex < _settings.SavedInstructions.Count)
+        {
+            var saved = _settings.SavedInstructions[savedIndex];
+            await (saved.ReplaceDirectly
+                ? _coordinator.HandleInstantAsync(RewriteMode.Rewrite, saved.Instruction)
+                : _coordinator.HandleAsync(RewriteMode.Rewrite, saved.Instruction));
             return;
         }
 
