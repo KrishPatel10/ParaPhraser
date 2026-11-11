@@ -73,9 +73,36 @@ h1 { font-size: var(--step-hero); max-width: 12.4em; }
 [data-ui] .paper { background: var(--ground); color: var(--ink); border-radius: 8px; padding: 12px 14px; font-size: 16px; line-height: 1.45; }
 [data-ui] .paper b { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--soft); }
 [data-ui] .win-actions { display: flex; gap: 8px; justify-content: flex-end; font-size: 14px; }
+[data-ui] .win button { border: 0; transition: transform 160ms var(--ease), background-color .15s, opacity .15s; }
+[data-ui] .win button:active { transform: scale(.97); }
+[data-ui] .win button:disabled { opacity: .45; cursor: default; transform: none; }
 [data-ui] .ghost { padding: 7px 12px; border-radius: 6px; background: var(--night-2); margin-right: auto; }
-[data-ui] .ghost + .ghost { margin-right: 0; }
-[data-ui] .solid { padding: 7px 14px; border-radius: 6px; background: var(--accent); font-weight: 600; }
+[data-ui] .ghost + .ghost { margin-right: 0; min-width: 72px; }
+[data-ui] .ghost[aria-pressed="true"] { background: #3a3f55; }
+[data-ui] .solid { padding: 7px 14px; min-width: 84px; border-radius: 6px; background: var(--accent); color: #fff; font-weight: 600; }
+
+/* The selection is only context, so it recedes; the suggestion is the bright page. */
+[data-ui] .paper.original { background: rgb(255 255 255 / .06); color: #c9cbe0; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); transition: background-color .3s, color .3s; }
+[data-ui] .paper.original b { color: #9ea3bd; }
+[data-ui] .paper.original.replaced { background: rgb(99 215 176 / .12); color: #f7f8fc; }
+[data-ui] .paper.original.replaced b { color: var(--mint); }
+[data-ui] .instruction b { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #9ea3bd; }
+[data-ui] .instruction-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 8px; background: var(--night-2); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); font-size: 15px; }
+[data-ui] .instruction-row span { flex: 1; min-width: 0; }
+[data-ui] .generate { flex: none; padding: 6px 12px; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; }
+[data-ui] .presets { display: flex; gap: 6px; margin-top: 8px; }
+[data-ui] .presets button { padding: 4px 12px; border-radius: 999px; background: transparent; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .16); color: #c9cbe0; font-size: 13px; font-weight: 600; }
+[data-ui] .presets button[aria-pressed="true"] { background: rgb(167 139 250 / .18); box-shadow: inset 0 0 0 1px #8b6cf0; color: #e3dbff; }
+[data-ui] .paper.suggestion { position: relative; padding-left: 20px; min-height: 92px; }
+[data-ui] .paper.suggestion::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 2px 2px 0; background: linear-gradient(var(--accent), var(--blue)); }
+[data-ui] #hero-status { margin-left: 4px; font-weight: 400; }
+[data-ui] .streaming #hero-suggestion::after { content: ""; display: inline-block; width: 2px; height: 1.05em; margin-left: 2px; vertical-align: -.15em; background: var(--accent); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (hover: hover) and (pointer: fine) {
+  [data-ui] .ghost:hover { background: #31364a; }
+  [data-ui] .presets button:hover { color: #fff; }
+  [data-ui] .solid:hover, [data-ui] .generate:hover { background: #5a35cf; }
+}
 
 .try { background: var(--blue); color: var(--ink); transition: background-color .3s; }
 .try-stage { display: grid; grid-template-columns: 5fr 7fr; gap: 48px; align-items: center; min-height: 92svh; padding: 120px var(--margin); }
