@@ -31,6 +31,7 @@ h2 { font-size: var(--step-head); }
 a { color: inherit; }
 button { font: inherit; color: inherit; cursor: pointer; }
 .defs { position: absolute; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 ::selection { background: var(--accent); color: var(--on-accent); }
 
@@ -168,19 +169,43 @@ figcaption strong { display: block; color: var(--ink); font-size: 20px; font-wei
 [data-ui] .choice { padding: 6px 10px; border-radius: 6px; background: var(--ground); font-size: 14px; }
 [data-ui] .choice.on { background: var(--accent); color: #fff; font-weight: 600; }
 
-.faq { padding: 0 var(--margin) 200px; display: grid; grid-template-columns: repeat(12, 1fr); }
-.faq h2, .drawer { grid-column: 2 / 12; }
-.drawer { margin-top: 88px; }
-details { position: relative; margin-top: -8px; padding: 0; background: var(--bg); --bg: var(--tile-1); }
+.faq { display: grid; grid-template-columns: 4fr 8fr; gap: 48px; align-items: start; padding: 0 var(--margin) 200px; }
+.faq-intro { position: sticky; top: 96px; }
+.faq-intro p { margin-top: 16px; max-width: 26em; }
+.faq-topics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 32px; }
+.faq-topics a { padding: 8px 16px; border-radius: 0 999px 999px 0; background: var(--tile-1); font-size: 16px; font-weight: 600; text-decoration: none; transition: background-color .15s, color .15s, transform .15s var(--ease); }
+.faq-topics a:nth-child(3n + 2) { background: var(--tile-2); }
+.faq-topics a:nth-child(3n) { background: var(--tile-3); }
+.faq-topics a:hover { transform: translateX(3px); }
+.faq-topics a[aria-current="true"] { background: var(--ink); color: var(--ground); }
+.faq-intro .faq-more { margin-top: 40px; color: var(--soft); font-size: var(--step-small); }
+.faq-ask { display: inline-block; margin-top: 12px; padding: 10px 26px 10px 18px; border-radius: 0 999px 999px 0; background: var(--ink); color: var(--ground); font-weight: 600; text-decoration: none; transition: transform .15s var(--ease); }
+.faq-ask:hover { transform: translateX(3px); }
+/* Room for the first tab, which sits above its panel. */
+.drawer { padding-top: 40px; --tab-width: min(200px, 30%); }
+details { position: relative; margin-top: -8px; padding: 0; background: var(--panel); --bg: var(--tile-1); --panel: var(--bg); transition: background-color .15s, box-shadow .25s; scroll-margin-top: 120px; interpolate-size: allow-keywords; }
 details:nth-child(3n + 2) { --bg: var(--tile-2); }
 details:nth-child(3n) { --bg: var(--tile-3); }
-details + details { margin-top: 32px; }
-summary { display: block; list-style: none; cursor: pointer; padding: 28px 28px 32px; }
+details:has(> summary:hover) { --panel: color-mix(in srgb, var(--bg) 92%, var(--ink)); }
+/* Enough room that each tab sits clear of the panel above it. */
+details + details { margin-top: 48px; }
+summary { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 24px; list-style: none; cursor: pointer; padding: 28px; }
 summary::-webkit-details-marker { display: none; }
-.tab { position: absolute; top: -40px; left: calc(var(--i) * 150px); width: 200px; height: 41px; padding: 9px 24px; background: var(--bg); font-size: 16px; font-weight: 600; clip-path: polygon(0 100%, 12px 0, calc(100% - 12px) 0, 100% 100%); }
+/* A plus that turns into a cross, so closed questions read as openable. */
+summary::after { content: ""; width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(var(--ink), var(--ink)) center / 14px 2px no-repeat, linear-gradient(var(--ink), var(--ink)) center / 2px 14px no-repeat, rgb(255 255 255 / .6); transition: transform .25s var(--ease); }
+details[open] > summary::after { transform: rotate(45deg); }
+/* The open folder is pulled forward from the stack. */
+details[open] { z-index: 1; box-shadow: 0 18px 40px rgb(31 34 48 / .14); }
+details[open] .q { font-weight: 600; }
+/* Tabs step evenly across the panel, so the last one always ends at its right edge.
+   5 is the last tab's --i, one less than the number of questions. */
+.tab { position: absolute; top: -40px; left: calc((100% - var(--tab-width)) * var(--i) / 5); width: var(--tab-width); height: 41px; padding: 9px 24px; background: var(--panel); transition: background-color .15s; font-size: 16px; font-weight: 600; clip-path: polygon(0 100%, 12px 0, calc(100% - 12px) 0, 100% 100%); }
 .q { display: block; font-size: var(--step-lead); font-weight: 500; line-height: 1.25; transition: transform .15s var(--ease); }
 summary:hover .q { transform: translateX(6px); }
-details p { max-width: 50ch; padding: 0 28px 32px; }
+details p { max-width: 68ch; padding: 0 28px 32px; }
+/* Browsers without this simply open and close instantly. */
+details::details-content { block-size: 0; overflow: hidden; transition: block-size .3s var(--ease), content-visibility .3s allow-discrete; }
+details[open]::details-content { block-size: auto; }
 
 .close { display: grid; grid-template-columns: 6fr 6fr; gap: 48px; min-height: 90svh; padding: 64px var(--margin); background: var(--accent); color: var(--on-accent); align-items: center; }
 .close-copy { align-self: end; }
@@ -231,9 +256,12 @@ details p { max-width: 50ch; padding: 0 28px 32px; }
   figcaption strong { font-size: 17px; }
   .spec { padding: 10px; font-size: 14px; }
   .faq { display: block; padding-bottom: 120px; }
+  .faq-intro { position: static; }
   .faq h2 { font-size: 9vw; }
-  .tab { width: 120px; left: calc(var(--i) * 48px); padding: 9px 16px; font-size: 15px; }
-  summary { padding: 20px 20px 24px; }
+  .drawer { margin-top: 48px; --tab-width: 120px; }
+  .tab { padding: 9px 16px; font-size: 15px; }
+  summary { padding: 20px; gap: 16px; }
+  summary::after { width: 32px; height: 32px; }
   details p { padding: 0 20px 24px; font-size: 16px; }
   .close { grid-template-columns: 1fr; align-items: start; min-height: 84svh; }
   .close-copy { align-self: start; }

@@ -83,6 +83,20 @@ howButtons.forEach(button => button.addEventListener('click', () => {
   document.getElementById('how-note').textContent = notes[button.dataset.how];
 }));
 
+// Topic links open their question, and show which one is open.
+const questions = [...document.querySelectorAll('.drawer details')];
+const topicLinks = [...document.querySelectorAll('.faq-topics a')];
+
+function markOpenTopic() {
+  topicLinks.forEach(link => link.setAttribute('aria-current', String(document.querySelector(link.hash).open)));
+}
+
+questions.forEach(question => question.addEventListener('toggle', markOpenTopic));
+topicLinks.forEach(link => link.addEventListener('click', () => {
+  document.querySelector(link.hash).open = true;
+}));
+markOpenTopic();
+
 const reveals = document.querySelectorAll('.reveal');
 if ('IntersectionObserver' in window) {
   const observer = new IntersectionObserver(entries => {
