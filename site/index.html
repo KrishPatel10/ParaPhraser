@@ -22,7 +22,8 @@
   <a class="wordmark" href="#top"><svg aria-hidden="true"><use href="#nib"/></svg>ParaPhraser</a>
   <nav aria-label="Main">
     <a href="#try">Try it</a>
-    <a href="#how">How it works</a>
+    <a href="#instructions">Saved instructions</a>
+    <a href="#modes">Offline or online</a>
     <a href="#features">Features</a>
     <a href="#questions">Questions</a>
   </nav>
@@ -36,7 +37,7 @@
       <h1>Rewrite text in any Windows app</h1>
       <p class="lead">Select text, press Ctrl+Alt+R, and read a better version beside your original before anything changes.</p>
       <a class="button" data-download href="https://github.com/KrishPatel10/ParaPhraser/releases/latest">Download for Windows</a>
-      <p class="note">Free and open source. Windows 10 or 11, 64-bit. 85 MB.</p>
+      <p class="note">Free and open source. Runs offline, or online with your own key. Windows 10 or 11, 64-bit. 85 MB.</p>
     </div>
     <div class="hero-picture" data-ui role="img" aria-label="The ParaPhraser window showing an original sentence above a more polished suggestion, with Copy and Replace buttons.">
       <div class="win">
@@ -48,22 +49,25 @@
     </div>
   </section>
 
-  <section class="try" id="try" data-mode="rewrite">
+  <section class="try" id="try" data-mode="grammar">
+    <div class="try-stage">
     <div class="try-copy reveal">
-      <h2><span id="try-word">Rewrite</span> this sentence</h2>
-      <p>Each action does one job. Choose one to see the difference on this example.</p>
+      <h2><span id="try-word">Fix</span> this sentence</h2>
+      <p>Each action does one job. Scroll to see each one on this example, or choose one.</p>
+      <div class="try-steps" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     </div>
     <div class="try-control reveal" data-ui>
       <div class="segments" role="group" aria-label="Choose what ParaPhraser does">
-        <button type="button" data-mode="grammar" aria-pressed="false">Fix grammar</button>
-        <button type="button" data-mode="rewrite" aria-pressed="true">Rewrite</button>
+        <button type="button" data-mode="grammar" aria-pressed="true">Fix grammar</button>
+        <button type="button" data-mode="rewrite" aria-pressed="false">Rewrite</button>
         <button type="button" data-mode="shorten" aria-pressed="false">Shorten</button>
         <button type="button" data-mode="format" aria-pressed="false">Format</button>
       </div>
       <div class="try-result" aria-live="polite">
         <div class="paper quiet"><b>You wrote</b>hey can u send me the report by friday, i need it for the client meeting</div>
-        <div class="paper"><b id="try-label">Suggestion</b><span id="try-output">Could you send me the report by Friday? I need it for the client meeting.</span></div>
+        <div class="paper"><b id="try-label">Fixed</b><span id="try-output">Hey, can you send me the report by Friday? I need it for the client meeting.</span></div>
       </div>
+    </div>
     </div>
   </section>
 
@@ -87,6 +91,54 @@
     </article>
   </section>
 
+  <section class="saved" id="instructions">
+    <div class="saved-copy reveal">
+      <h2>Your own instructions, one shortcut away</h2>
+      <p>Save the way you write once, such as a client email or a team update. Give it a shortcut, and pressing it runs that instruction on your selection straight away.</p>
+      <p class="saved-note">No menus and no Generate click. Generate is still there when you want to edit the instruction and run it again.</p>
+    </div>
+    <div class="reveal" data-ui>
+      <div class="saved-list" role="group" aria-label="Choose a saved instruction">
+        <button type="button" data-saved="email" aria-pressed="true"><span class="saved-name">Client email</span><span class="saved-text">A clear, polite email. Keep every name, date, and amount.</span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>1</kbd></span></button>
+        <button type="button" data-saved="update" aria-pressed="false"><span class="saved-name">Team update</span><span class="saved-text">Short and friendly. Keep every date and action.</span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>2</kbd></span></button>
+        <button type="button" data-saved="bullets" aria-pressed="false"><span class="saved-name">Bullet points</span><span class="saved-text">Turn it into a short list of what's needed.</span><span class="keys"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>3</kbd></span></button>
+      </div>
+      <div class="try-result" aria-live="polite">
+        <div class="paper quiet"><b>You wrote</b>hey can u send me the report by friday, i need it for the client meeting</div>
+        <div class="paper"><b id="saved-label">Client email</b><span id="saved-output">Hello, could you please send me the report by Friday? I need it for the client meeting. Thank you.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="modes" id="modes">
+    <div class="modes-head reveal">
+      <h2>Offline or online. You choose.</h2>
+      <p>Switch between them in Settings at any time. Either way, nothing replaces your text until you say so.</p>
+    </div>
+    <article class="mode offline reveal">
+      <p class="mode-tag">Offline</p>
+      <h3>Your text stays on this computer</h3>
+      <ul>
+        <li>Runs on local AI through Ollama.</li>
+        <li>Works with no internet connection.</li>
+        <li>Free, with no account and no key.</li>
+        <li>Settings can download the model for you.</li>
+      </ul>
+      <div class="spec" data-ui><span class="row"><i class="dot"></i>Local AI is ready</span><span class="sub">gemma3:4b through Ollama</span></div>
+    </article>
+    <article class="mode online reveal">
+      <p class="mode-tag">Online</p>
+      <h3>Bring your own API key</h3>
+      <ul>
+        <li>Use models from Anthropic, OpenAI, Google, or OpenRouter.</li>
+        <li>Your key is encrypted for your Windows account.</li>
+        <li>You pay your provider directly. Nothing to subscribe to here.</li>
+        <li>If a model is busy, one click retries with another.</li>
+      </ul>
+      <div class="spec spec-wide" data-ui><span class="sub">Online provider</span><span class="choice on">Anthropic Claude</span><span class="choice">OpenAI</span><span class="choice">Google Gemini</span><span class="choice">OpenRouter</span></div>
+    </article>
+  </section>
+
   <section class="features" id="features">
     <div class="features-copy reveal">
       <h2>You stay in charge</h2>
@@ -94,14 +146,6 @@
       <img class="shot" src="settings.png" width="588" height="503" loading="lazy" alt="ParaPhraser Settings, with Offline selected and the local gemma3:4b model ready.">
     </div>
     <div class="tiles">
-      <figure class="reveal">
-        <div class="tile t1"><div class="spec" data-ui><span class="row"><i class="dot"></i>Local AI is ready</span><span class="sub">gemma3:4b through Ollama</span></div></div>
-        <figcaption><strong>Works offline</strong>With Ollama, your text stays on this computer.</figcaption>
-      </figure>
-      <figure class="reveal wide">
-        <div class="tile t2"><div class="spec spec-wide" data-ui><span class="sub">Online provider</span><span class="choice on">Anthropic Claude</span><span class="choice">OpenAI</span><span class="choice">Google Gemini</span><span class="choice">OpenRouter</span></div></div>
-        <figcaption><strong>Or use your own API key</strong>Keys are encrypted for your Windows account, and there is nothing to subscribe to here.</figcaption>
-      </figure>
       <figure class="reveal">
         <div class="tile t3"><div class="spec" data-ui><span class="row warn">Check this detail</span><span class="sub">"$4,200" may be missing from the suggestion.</span></div></div>
         <figcaption><strong>Catches dropped details</strong>Numbers, dates, names, and links are checked.</figcaption>
@@ -113,10 +157,6 @@
       <figure class="reveal">
         <div class="tile t3"><div class="spec" data-ui><span class="sub">Format keeps every word</span><span class="row">Pay by <strong>Friday</strong>, or <span class="red">the order lapses</span>.</span></div></div>
         <figcaption><strong>Formats without rewriting</strong>Bold, color, and highlight, with your words intact.</figcaption>
-      </figure>
-      <figure class="reveal wide">
-        <div class="tile t1"><div class="spec spec-wide" data-ui><span class="sub">Saved</span><span class="choice on">Client email</span><span class="choice">Status update</span><span class="choice">Friendly reply</span></div></div>
-        <figcaption><strong>Remembers how you write</strong>Save instructions and reuse them in one click.</figcaption>
       </figure>
     </div>
   </section>

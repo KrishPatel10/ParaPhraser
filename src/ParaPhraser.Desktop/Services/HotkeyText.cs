@@ -40,7 +40,8 @@ public static class HotkeyText
             parts.Add("Win");
         }
 
-        parts.Add(key.ToString());
+        // Key.D1 is the 1 key, and people expect to read "1".
+        parts.Add(key is >= Key.D0 and <= Key.D9 ? ((int)(key - Key.D0)).ToString() : key.ToString());
         return string.Join('+', parts);
     }
 
@@ -50,7 +51,11 @@ public static class HotkeyText
         virtualKey = 0;
 
         var parts = text?.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
-        if (parts.Length < 2 || !Enum.TryParse<Key>(parts[^1], ignoreCase: true, out var key))
+
+        // A lone digit is that number key. Any other number would parse as a
+        // raw enum value, so "Ctrl+Alt+1" would mean Key.Cancel.
+        var keyText = parts.Length > 0 && parts[^1] is [>= '0' and <= '9'] ? "D" + parts[^1] : parts.LastOrDefault();
+        if (parts.Length < 2 || keyText!.All(char.IsDigit) || !Enum.TryParse<Key>(keyText, ignoreCase: true, out var key))
         {
             return false;
         }

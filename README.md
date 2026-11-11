@@ -19,7 +19,8 @@ This starter implements the complete Windows interaction loop:
 - Every shortcut can be changed in Settings.
 - **Show changes** compares a suggestion with the original, and a warning names
   numbers, dates, names, and links that may have been dropped.
-- Saved instructions, such as "Client email", in the overlay's Saved list.
+- Saved instructions, such as "Client email", in the overlay's Saved list. Give
+  one its own shortcut, and optionally have that shortcut replace directly.
 - When an online model is busy, one click retries with a lighter model.
 - Clipboard-preserving selection capture.
 - Minimal result overlay with Copy, Replace, Enter, and Escape actions.

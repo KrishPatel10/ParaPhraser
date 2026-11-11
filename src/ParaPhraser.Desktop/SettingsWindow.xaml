@@ -170,7 +170,8 @@
         </StackPanel>
 
         <StackPanel x:Name="InstructionsTab" Margin="0,16,0,0" Visibility="Collapsed">
-            <TextBlock Text="These appear in the Saved list next to Action and Tone."
+            <TextBlock Text="These appear in the Saved list next to Action and Tone. Give one a shortcut to run it straight away."
+                       TextWrapping="Wrap"
                        Foreground="{StaticResource OverlayTextBrush}"
                        FontSize="13" />
             <ScrollViewer Margin="0,12,0,0"
@@ -184,6 +185,8 @@
                                     <ColumnDefinition Width="140" />
                                     <ColumnDefinition Width="8" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="120" />
                                     <ColumnDefinition Width="8" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
@@ -199,7 +202,23 @@
                                          VerticalContentAlignment="Top"
                                          Text="{Binding Instruction, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource SettingsTextBoxStyle}" />
-                                <Button Grid.Column="4"
+                                <StackPanel Grid.Column="4" VerticalAlignment="Top">
+                                <TextBox AutomationProperties.Name="Instruction shortcut"
+                                         ToolTip="Press a shortcut to run this instruction. Backspace removes it."
+                                         IsReadOnly="True"
+                                         Text="{Binding Shortcut, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewKeyDown="ShortcutBox_PreviewKeyDown"
+                                         GotKeyboardFocus="ShortcutBox_GotKeyboardFocus"
+                                         LostKeyboardFocus="ShortcutBox_LostKeyboardFocus"
+                                         Style="{StaticResource SettingsTextBoxStyle}" />
+                                <CheckBox Margin="0,6,0,0"
+                                          Content="Replace directly"
+                                          ToolTip="The shortcut pastes the result straight away, with Undo. If a detail looks missing, it opens for review instead."
+                                          IsChecked="{Binding ReplaceDirectly}"
+                                          Foreground="{StaticResource OverlayTextBrush}"
+                                          FontSize="12" />
+                                </StackPanel>
+                                <Button Grid.Column="6"
                                         Width="32"
                                         Height="32"
                                         Padding="0"

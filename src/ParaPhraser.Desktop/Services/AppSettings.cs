@@ -33,6 +33,12 @@ public sealed class SavedInstruction
     public string Name { get; set; } = string.Empty;
 
     public string Instruction { get; set; } = string.Empty;
+
+    /// <summary>Runs this instruction straight away. Empty means none.</summary>
+    public string Shortcut { get; set; } = string.Empty;
+
+    /// <summary>The shortcut pastes the result with no review, like direct replace.</summary>
+    public bool ReplaceDirectly { get; set; }
 }
 
 public sealed class AppSettings

@@ -466,7 +466,8 @@ public partial class OverlayWindow : Window
         await GenerateAsync();
     }
 
-    private async Task GenerateAsync()
+    /// <summary>Does what Generate does, so a saved instruction's shortcut can start it.</summary>
+    public async Task GenerateAsync()
     {
         if (_generateAsync is null || !GenerateButton.IsEnabled || _stopGeneration is not null)
         {
